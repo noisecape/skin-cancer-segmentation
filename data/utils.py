@@ -5,7 +5,7 @@ import os
 from PIL import Image
 
 
-def resize_images_unlabelled(folder_path, new_imgs_folder="./Resized/Unlabelled", img_size=512):
+def resize_images_unlabelled(folder_path, new_imgs_folder="./Resized/Unlabelled", img_size=128):
     # if the folder already exists, then return. Otherwise, create a new folder
     # with the resized images
     if os.path.exists(new_imgs_folder):
@@ -20,7 +20,7 @@ def resize_images_unlabelled(folder_path, new_imgs_folder="./Resized/Unlabelled"
         for img_label in sorted(os.listdir(imgs_path)):
             if '.jpg' in img_label or '.png' in img_label:
                 img_path = os.path.join(imgs_path, img_label)
-                tensor_converter = torchvision.transforms.Compose([torchvision.transforms.Resize((512, 512)),
+                tensor_converter = torchvision.transforms.Compose([torchvision.transforms.Resize((img_size, img_size)),
                                                                torchvision.transforms.ToTensor(),
                                                                torchvision.transforms.ToPILImage()])
                 image = tensor_converter(Image.open(img_path))
@@ -32,9 +32,7 @@ def resize_images_unlabelled(folder_path, new_imgs_folder="./Resized/Unlabelled"
     print('Done')
 
 
-
-
-def resize_images_labelled(folder_path, new_imgs_folder="./Resized/Labelled", img_size=512):
+def resize_images_labelled(folder_path, new_imgs_folder="./Resized/Labelled", img_size=128):
     if not os.path.exists(new_imgs_folder):
         os.mkdir(new_imgs_folder)
     if not os.path.exists(os.path.join(new_imgs_folder, 'Images')):
@@ -47,7 +45,7 @@ def resize_images_labelled(folder_path, new_imgs_folder="./Resized/Labelled", im
         counter = 0
         for img, gt in zip(sorted(os.listdir(imgs_path[0])), sorted(os.listdir(imgs_path[1]))):
             if '.jpg' in img or '.png' in img and '.jpg' in gt or '.png' in gt:
-                tensor_converter = torchvision.transforms.Compose([torchvision.transforms.Resize((512, 512)),
+                tensor_converter = torchvision.transforms.Compose([torchvision.transforms.Resize((img_size, img_size)),
                                                                    torchvision.transforms.ToTensor(),
                                                                    torchvision.transforms.ToPILImage()])
                 image = tensor_converter(Image.open(os.path.join(imgs_path[0], img)))
@@ -65,6 +63,31 @@ def resize_images_labelled(folder_path, new_imgs_folder="./Resized/Labelled", im
     print('Done')
 
 
+def plot_data_dimensions(path_unlabelled, path_labelled):
+    imgs_sizes = []
+    # process unlabelled images
+    for imgs_batch in path_unlabelled:
+        for img_label in os.listdir(imgs_batch):
+            if '.jpg' in img_label or '.png' in img_label:
+                full_label = os.path.join(imgs_batch, img_label)
+                img = Image.open(full_label)
+                imgs_sizes.append((img.size[0], img.size[1]))
+    # process labelled images
+    for imgs_batch in path_labelled:
+        for imgs_label in sorted(os.listdir(imgs_batch[0])):
+            if '.jpg' in imgs_label or '.png' in imgs_label and '.jpg':
+                img_label = os.path.join(imgs_batch[0], imgs_label)
+                img = Image.open(img_label)
+                imgs_sizes.append((img.size[0], img.size[1]))
+
+    # compute statistics
+    avg_width = np.mean([img_size[0] for img_size in imgs_sizes])
+    avg_height = np.mean([img_size[1] for img_size in imgs_sizes])
+
+    median_width = np.median([img_size[0] for img_size in imgs_sizes])
+    median_height = np.median([img_size[1] for img_size in imgs_sizes])
+    # plot histogram of both median and average values for width and height
+
 """
 The dataset comes with images that have gt for segmentation and others that don't. Namely, the images that
 don't have gt are in the folders: 'ISIC2018_Task3_Training_Input', 'Testing/ISIC2018_Task1-2_Test_Input'.
@@ -81,6 +104,8 @@ path_labelled = [('/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Training/
                   '/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Training/ISIC2018_Task1_Training_GroundTruth'),
                  ('/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Validation/ISIC2018_Task1-2_Validation_Input',
                   '/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Validation/ISIC2018_Task1_Validation_GroundTruth')]
+
+plot_data_dimensions(path_unlabelled, path_labelled)
 
 if os.path.exists('./Resized'):
     if len(os.listdir('./Resized')) == 0:
