@@ -7,6 +7,7 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 class ContextRestorationDataPretext(Dataset):
 
     imgs_path = 'Resized/Unlabelled'
@@ -218,9 +219,10 @@ class JigsawDataPretext(Dataset):
         return len(self.images)
 
 
-dataset = JigsawDataPretext()
-permutations = dataset.__getitem__(56)
-print(permutations)
+# dataset = JigsawDataPretext()
+# permutations = dataset.__getitem__(56)
+# print(permutations)
+
 # dataset = ContrastiveLearningDataPretext()
 # dataloader = DataLoader(dataset, batch_size=10, shuffle=True)
 # for image in dataloader:
