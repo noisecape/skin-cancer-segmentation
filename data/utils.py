@@ -105,11 +105,12 @@ path_labelled = [('/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Training/
                  ('/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Validation/ISIC2018_Task1-2_Validation_Input',
                   '/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Validation/ISIC2018_Task1_Validation_GroundTruth')]
 
-plot_data_dimensions(path_unlabelled, path_labelled)
+# plot_data_dimensions(path_unlabelled, path_labelled)
 
 if os.path.exists('./Resized'):
     if len(os.listdir('./Resized')) == 0:
         os.rmdir('./Resized')
-os.mkdir('./Resized')
-resize_images_unlabelled(path_unlabelled)
-resize_images_labelled(path_labelled)
+else:
+    os.mkdir('./Resized')
+    resize_images_unlabelled(path_unlabelled)
+    resize_images_labelled(path_labelled)

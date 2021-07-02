@@ -7,6 +7,9 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 
+# # in case of testing
+# from model.context_restoration import ContextRestoration
+
 
 class ContextRestorationDataPretext(Dataset):
 
@@ -134,7 +137,7 @@ class JigsawDataPretext(Dataset):
 
     unlabelled_path = 'Resized/Unlabelled'
 
-    def __init__(self, P=100, N=3):
+    def __init__(self, P=30, N=3):
         super(JigsawDataPretext, self).__init__()
         self.images = os.listdir(os.path.join(os.curdir, JigsawDataPretext.unlabelled_path))
         self.P = P
@@ -219,6 +222,19 @@ class JigsawDataPretext(Dataset):
         return len(self.images)
 
 
+
+# dataset = ContextRestorationDataPretext(20)
+# dataloader_params = {"shuffle": True, "batch_size":64}
+# epochs = 10
+# dataloader = DataLoader(dataset, **dataloader_params)
+#
+# model = ContextRestoration()
+# for e in range(epochs):
+#     for batch in dataloader:
+#         corrupted = batch[0]
+#         original = batch[1]
+#         output = model(corrupted)
+
 # dataset = JigsawDataPretext()
 # permutations = dataset.__getitem__(56)
 # print(permutations)
@@ -230,9 +246,9 @@ class JigsawDataPretext(Dataset):
 #         dataset.visualize_image(aug1)
 #         dataset.visualize_image(aug2)
 
-# dataset = ContextRestorationDataPretext(15)
-# dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
-# for image in dataloader:
-#     for original, corrupted in zip(image[0], image[1]):
-#         dataset.visualize_image(original)
-#         dataset.visualize_image(corrupted)
+dataset = ContextRestorationDataPretext(15)
+dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
+for image in dataloader:
+    for original, corrupted in zip(image[0], image[1]):
+        dataset.visualize_image(original)
+        dataset.visualize_image(corrupted)

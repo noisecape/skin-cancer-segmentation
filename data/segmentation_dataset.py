@@ -47,7 +47,7 @@ class SegmentationDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-dataset = SegmentationDataset(mode='train')
-dataloader = DataLoader(dataset, batch_size=12, shuffle=True)
-for item in dataloader:
-    print(item)
+# dataset = SegmentationDataset(mode='train')
+# dataloader = DataLoader(dataset, batch_size=12, shuffle=True)
+# for item in dataloader:
+#     print(item)

@@ -12,18 +12,3 @@ class JiGen(nn.Module):
 
     def forward(self, x):
         pass
-
-
-class ContrastiveLearning(nn.Module):
-
-    def __init__(self):
-        pass
-
-    def forward(self, x):
-        pass
-
-
-x = torch.randn((1, 3, 128, 128))
-model = ContextRestoration()
-out = model(x)
-print(out)
