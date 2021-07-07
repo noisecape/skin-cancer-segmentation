@@ -30,7 +30,7 @@ class ContextRestorationDataPretext(Dataset):
         corrupted_img = self.augment_image(img)
         return img, corrupted_img
 
-    def augment_image(self, x, patch_size=6):
+    def augment_image(self, x, patch_size=10):
         new_x = x.clone().detach()
         for _ in range(self.T):
             firstpatch_coordinates = (random.randint(0, x.shape[1]-patch_size),
@@ -246,9 +246,9 @@ class JigsawDataPretext(Dataset):
 #         dataset.visualize_image(aug1)
 #         dataset.visualize_image(aug2)
 
-dataset = ContextRestorationDataPretext(15)
-dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
-for image in dataloader:
-    for original, corrupted in zip(image[0], image[1]):
-        dataset.visualize_image(original)
-        dataset.visualize_image(corrupted)
+# dataset = ContextRestorationDataPretext(15)
+# dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
+# for image in dataloader:
+#     for original, corrupted in zip(image[0], image[1]):
+#         dataset.visualize_image(original)
+#         dataset.visualize_image(corrupted)

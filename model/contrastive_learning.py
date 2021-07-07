@@ -6,14 +6,16 @@ from torchvision.models.resnet import resnet50
 
 class SimCLR(nn.Module):
 
-    def __init__(self, out_dim, fine_tune=False):
+    def __init__(self, out_dim=2048, fine_tune=False):
         super(SimCLR, self).__init__()
         resnet = resnet50()
         self.fine_tune = fine_tune
         self.backbone = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
                                       resnet.layer1, resnet.layer2, resnet.layer3,
                                       resnet.layer4, resnet.avgpool)
+        # used for pretext task
         self.pretext_head = nn.Sequential(nn.Linear(out_dim, out_dim), nn.ReLU(), nn.Linear(out_dim, out_dim))
+        # used for segmentation task
         self.fcn = nn.Sequential(
             # input [N x 2048 x 1 x 1]
             # output [N x 1024 x 4 x 4]
@@ -52,7 +54,6 @@ class SimCLR(nn.Module):
             x = torch.flatten(x, 1)
             output = self.pretext_head(x)
             return output
-
 
 # x = torch.randn((1, 3, 128, 128))
 # gt = torch.randn((1, 1, 128, 128))

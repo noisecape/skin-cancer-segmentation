@@ -21,7 +21,7 @@ class DoubleConv(nn.Module):
 
 class Unet(nn.Module):
 
-    def __init__(self, in_channel=3, out_channel=1, features=[64, 128, 256, 512]):
+    def __init__(self, in_channel, out_channel, features=[64, 128, 256, 512]):
         super(Unet, self).__init__()
         self.skip_connections = []
         self.ups = nn.ModuleList()
@@ -59,7 +59,7 @@ class ContextRestoration(nn.Module):
 
     def __init__(self, in_channel=3, out_channel=1):
         super(ContextRestoration, self).__init__()
-        self.unet = Unet()
+        self.unet = Unet(in_channel, out_channel)
 
     def forward(self, x):
         return self.unet(x)
