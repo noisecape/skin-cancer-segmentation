@@ -9,10 +9,9 @@ from torchvision.models.resnet import resnet50
 
 class JiGen(nn.Module):
 
-    def __init__(self, P=30, pretext=False):
+    def __init__(self, P=30):
         super(JiGen, self).__init__()
         self.P = P
-        self.pretext = pretext
         self.resnet = resnet50()
         self.model = torch.nn.Sequential(self.resnet.conv1, self.resnet.bn1,
                                          self.resnet.relu, self.resnet.maxpool,
@@ -21,7 +20,7 @@ class JiGen(nn.Module):
                                          self.resnet.avgpool)
 
         self.pretext_head = nn.Sequential(nn.Linear(2048, 1024), nn.ReLU(), nn.Linear(1024, self.P))
-        self.segmentation_head = nn.Sequential(
+        self.fcn = nn.Sequential(
             # input [N x 2048 x 1 x 1]
             # output [N x 1024 x 4 x 4]
             nn.ConvTranspose2d(2048, 1024, kernel_size=4, stride=1, padding=0, bias=False),
@@ -49,18 +48,18 @@ class JiGen(nn.Module):
             # which implicitly implements the Sigmoid function.
         )
 
-    def forward(self, x):
+    def forward(self, x, pretext=False):
         x = self.model(x)
-        if self.pretext:
+        if pretext:
             x = torch.flatten(x, 1)
             x = self.pretext_head(x)
         else:
-            x = self.segmentation_head(x)
+            x = self.fcn(x)
         return x
 
 
 # batch = torch.randn((64, 3, 128, 128))
-# model = JiGen(pretext=True)
+# model = JiGen()
 # criterion = torch.nn.CrossEntropyLoss()
 # label = [random.randint(0, 29) for _ in range(64)]
 # label = torch.tensor(label)

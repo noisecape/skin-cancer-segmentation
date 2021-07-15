@@ -6,10 +6,9 @@ from torchvision.models.resnet import resnet50
 
 class SimCLR(nn.Module):
 
-    def __init__(self, out_dim=2048, fine_tune=False):
+    def __init__(self, out_dim=2048):
         super(SimCLR, self).__init__()
         resnet = resnet50()
-        self.fine_tune = fine_tune
         self.backbone = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
                                       resnet.layer1, resnet.layer2, resnet.layer3,
                                       resnet.layer4, resnet.avgpool)
@@ -44,21 +43,21 @@ class SimCLR(nn.Module):
             # which implicitly implements the Sigmoid function.
         )
 
-    def forward(self, x):
-        if self.fine_tune:
-            x = self.backbone(x)
-            output = self.fcn(x)
-            return output
-        else:
+    def forward(self, x, pretext=False):
+        if pretext:
             x = self.backbone(x)
             x = torch.flatten(x, 1)
             output = self.pretext_head(x)
             return output
+        else:
+            x = self.backbone(x)
+            output = self.fcn(x)
+            return output
 
 # x = torch.randn((1, 3, 128, 128))
 # gt = torch.randn((1, 1, 128, 128))
-# model = SimCLR(out_dim=2048, fine_tune=True)
-# result = model(x)
+# model = SimCLR(out_dim=2048)
+# result = model(x, pretext=True)
 # criterion = nn.BCEWithLogitsLoss()
 # loss = criterion(result, gt)
 # print(loss)

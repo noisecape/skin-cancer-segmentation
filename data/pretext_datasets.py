@@ -14,7 +14,7 @@ from torch.random import default_generator
 
 class ContextRestorationDataPretext(Dataset):
 
-    imgs_path = 'Resized/Unlabelled'
+    imgs_path = 'data/Resized/Unlabelled'
 
     def __init__(self, T):
         super(ContextRestorationDataPretext, self).__init__()
@@ -136,7 +136,7 @@ class ContrastiveLearningDataPretext(Dataset):
 
 class JigsawDataPretext(Dataset):
 
-    unlabelled_path = 'Resized/Unlabelled'
+    unlabelled_path = 'data/Resized/Unlabelled'
 
     def __init__(self, P=30, N=3):
         super(JigsawDataPretext, self).__init__()

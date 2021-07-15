@@ -6,8 +6,8 @@ import torchvision
 
 class SegmentationDataset(Dataset):
 
-    imgs_path = 'Resized/Labelled/Images'
-    gt_path = 'Resized/Labelled/Groundtruth'
+    imgs_path = 'data/Resized/Labelled/Images'
+    gt_path = 'data/Resized/Labelled/Groundtruth'
 
     def __init__(self, mode, split_perc=[0.7, 0.1, 0.2]):
         super(SegmentationDataset, self).__init__()
