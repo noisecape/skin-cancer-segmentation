@@ -72,14 +72,12 @@ class JigsawTrainer(Trainer):
                 return False
         return True
 
-    def get_data(self, labels, permutations):
-        loop = tqdm(enumerate(labels), total=len(labels), leave=False)
+    def get_data(self, img_labels, permutations):
         imgs = torch.ones((64, 30, 3, 128, 128))
         labels = torch.ones((64, 30), dtype=int)
-        for idx, img_label in loop:
+        for idx, img_label in enumerate(img_labels):
             for _ in range(len(permutations)):
                 imgs[idx], labels[idx] = self.permute_img(img_label, permutations)
-        # data = [[self.permute_img(img_label, permutations) for idx in range(len(permutations))] for img_label in loop]
         return imgs, labels
 
     def shuffle_tiles(self, img, chosen_p):
