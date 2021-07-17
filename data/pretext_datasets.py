@@ -10,7 +10,7 @@ import itertools
 from torch.random import default_generator
 # # in case of testing
 # from model.context_restoration import ContextRestoration
-
+from tqdm import tqdm
 
 class ContextRestorationDataPretext(Dataset):
 
@@ -138,58 +138,15 @@ class JigsawDataPretext(Dataset):
 
     unlabelled_path = 'data/Resized/Unlabelled'
 
-    def __init__(self, P=30, N=3):
+    def __init__(self):
         super(JigsawDataPretext, self).__init__()
-        self.images = os.listdir(os.path.join(os.curdir, JigsawDataPretext.unlabelled_path))
-        self.P = P
-        self.permutations_set = self.get_permutation_set()
-        self.N = N
-
-    def get_permutation_set(self):
-        indices = [0, 1, 2, 3, 4, 5, 6, 7, 8]
-        permutations = []
-        permutations.append(indices)
-        while len(permutations) != self.P:
-            candidate = np.random.permutation(indices)
-            if self.validate_permutation(permutations, candidate, min_dist=4):
-                permutations.append(candidate.tolist())
-        return permutations
-
+        self.imgs_label = os.listdir(os.path.join(os.curdir, JigsawDataPretext.unlabelled_path))
 
     def __getitem__(self, idx):
-        permuted_img, label = self.get_permutations(self.images[idx])
-        return permuted_img, label
+        return self.imgs_label[idx]
 
-    def get_permutations(self, img_label):
-        # retrieve the image
-        # apply a 3x3 grid
-        # calculate 100 permutations using the Hamming distance
-        # append each permutation into a list and return it
-        random_choice = random.randint(0, len(self.permutations_set)-1)
-        chosen_p = self.permutations_set[random_choice]
-        dir_path = os.path.join(os.curdir, JigsawDataPretext.unlabelled_path)
-        img_path = os.path.join(dir_path, img_label)
-        img = Image.open(img_path)
-        permuted_img = self.shuffle_tiles(img, chosen_p)
-        return permuted_img, random_choice
-
-    def shuffle_tiles(self, img, chosen_p):
-        tiles = [None] * self.N**2
-        # chosen_permutations = []
-        # permuted_images = []
-        for i in range(self.N**2):
-            tiles[i] = self.get_tile(img, i)
-        img_data = [tiles[chosen_p[t]] for t in range(self.N**2)]
-        tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
-                                                               torchvision.transforms.Normalize((.5, .5, .5,),
-                                                                                                (.5, .5, .5))])
-        img_data = [tensor_converter(img) for img in img_data]
-        img_data = torch.stack(img_data, 0)
-        img = torchvision.utils.make_grid(img_data, self.N, padding=0)
-        upsampler = torchvision.transforms.Resize((128, 128))
-        img = upsampler(img)
-        # self.visualize_image(img)
-        return img
+    def __len__(self):
+        return len(self.imgs_label)
 
     def visualize_image(self, x):
         plt.figure(figsize=(16, 16))
@@ -199,24 +156,6 @@ class JigsawDataPretext(Dataset):
         plt.axis('off')
         plt.show()
         plt.close()
-
-    def get_tile(self, img, i):
-        w = int(img.size[0] / self.N)
-        y = int(i/self.N)
-        x = i % self.N
-        tile = img.crop([x * w, y * w, (x + 1) * w, (y + 1) * w])
-        return tile
-
-    def validate_permutation(self, permutations, candidate, min_dist=4):
-        for p in permutations:
-            dist = sum(int(char1 != char2) for char1, char2 in zip(p, candidate))
-            if dist < min_dist:
-                return False
-        return True
-
-    def __len__(self):
-        return len(self.images)
-
 
 
 # dataset = ContextRestorationDataPretext(20)
