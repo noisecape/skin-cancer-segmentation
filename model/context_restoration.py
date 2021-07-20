@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
+import os
 
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 class DoubleConv(nn.Module):
 
@@ -36,9 +38,10 @@ class Unet(nn.Module):
         for f in reversed(features):
             self.ups.append(DoubleConv(f*2, f))
             self.upscale.append(nn.ConvTranspose2d(f*2, f, kernel_size=2, stride=2))
-        self.final_layer = nn.Conv2d(in_channels=features[0], out_channels=out_channel, kernel_size=1)
+        self.final_layer_pretext = nn.Conv2d(in_channels=features[0], out_channels=3, kernel_size=1)
+        self.final_layer_segmentation = nn.Conv2d(in_channels=features[0], out_channels=1, kernel_size=1)
 
-    def forward(self, x):
+    def forward(self, x, pretext=False):
         # down
         for u in self.downs:
             x = u(x)
@@ -51,7 +54,10 @@ class Unet(nn.Module):
             x = u(x)
             x = torch.cat((x, s), 1)
             x = d(x)
-        x = self.final_layer(x)
+        if pretext:
+            x = self.final_layer_pretext(x)
+        else:
+            x = self.final_layer_segmentation(x)
         return x
 
 
@@ -61,12 +67,25 @@ class ContextRestoration(nn.Module):
         super(ContextRestoration, self).__init__()
         self.unet = Unet(in_channel, out_channel)
 
-    def forward(self, x):
-        return self.unet(x)
+    def forward(self, x, pretext=False):
+        return self.unet(x, pretext=pretext)
 
 
-# x = torch.randn((1, 3, 128, 128))
+# Pretext sample
+# x = torch.randn((64, 3, 128, 128))
 # model = ContextRestoration()
-# result = model(x)
-# assert x.shape == (1, 3, 128, 128)
+# result = model(x, pretext=True)
+# criterion = torch.nn.MSELoss()
+# loss = criterion(result, x)
+# assert x.shape == (64, 3, 128, 128)
+# print()
+
+# Segmentation sample
+# x = torch.randn((64, 3, 128, 128))
+# gt = torch.randn((64, 1, 128, 128))
+# model = ContextRestoration()
+# prediction = model(x, pretext=False)
+# criterion = torch.nn.BCEWithLogitsLoss()
+# loss = criterion(prediction, gt)
+# assert prediction.shape == (64, 1, 128, 128)
 # print()

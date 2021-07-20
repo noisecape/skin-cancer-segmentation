@@ -32,4 +32,5 @@ class ContrastiveLoss(Module):
         denominator = mask * torch.exp(sim_matrix / self.temperature)
         loss = -torch.log(numerator / torch.sum(denominator, dim=1))
         loss = torch.sum(loss) / batch_size * 2
+
         return loss

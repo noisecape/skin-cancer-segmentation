@@ -2,7 +2,11 @@ import torch
 import torchvision
 import torch.nn as nn
 from torchvision.models.resnet import resnet50
+from model.utils.criterions import ContrastiveLoss
+import os
+from PIL import Image
 
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 class SimCLR(nn.Module):
 
@@ -43,21 +47,45 @@ class SimCLR(nn.Module):
             # which implicitly implements the Sigmoid function.
         )
 
+    def augment_data(self, img):
+        augmenter = torchvision.transforms.Compose([torchvision.transforms.RandomResizedCrop((img.shape[1],
+                                                                                              img.shape[2])),
+                                                    torchvision.transforms.ColorJitter((1, 2), 2, 2, 0.5),
+                                                    torchvision.transforms.GaussianBlur(3)])
+        augmented_1 = augmenter(img)
+        augmented_2 = augmenter(img)
+        return augmented_1, augmented_2
+
     def forward(self, x, pretext=False):
         if pretext:
-            x = self.backbone(x)
-            x = torch.flatten(x, 1)
-            output = self.pretext_head(x)
-            return output
+            emb_1, emb_2 = self.augment_data(x)
+
+            emb_1 = self.backbone(emb_1)
+            emb_1 = torch.flatten(emb_1, 1)
+            emb_1 = self.pretext_head(emb_1)
+
+            emb_2 = self.backbone(emb_2)
+            emb_2 = torch.flatten(emb_2, 1)
+            emb_2 = self.pretext_head(emb_2)
+            return emb_1, emb_2
         else:
             x = self.backbone(x)
             output = self.fcn(x)
             return output
 
-# x = torch.randn((1, 3, 128, 128))
-# gt = torch.randn((1, 1, 128, 128))
+# pretext sample
+# x = torch.randn((64, 3, 128, 128))
 # model = SimCLR(out_dim=2048)
-# result = model(x, pretext=True)
-# criterion = nn.BCEWithLogitsLoss()
-# loss = criterion(result, gt)
+# emb_1, emb_2 = model(x, pretext=True)
+# criterion = ContrastiveLoss()
+# loss = criterion(emb_1, emb_2)
+# print(loss)
+
+# segmentation sample
+# x = torch.randn((64, 3, 128, 128))
+# gt = torch.randn((64, 1, 128, 128))
+# model = SimCLR(out_dim=2048)
+# prediction = model(x, pretext=False)
+# criterion = torch.nn.BCEWithLogitsLoss()
+# loss = criterion(prediction, gt)
 # print(loss)

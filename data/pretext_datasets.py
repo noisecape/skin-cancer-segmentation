@@ -12,6 +12,7 @@ from torch.random import default_generator
 # from model.context_restoration import ContextRestoration
 from tqdm import tqdm
 
+
 class ContextRestorationDataPretext(Dataset):
 
     imgs_path = 'data/Resized/Unlabelled'
@@ -95,27 +96,27 @@ class ContrastiveLearningDataPretext(Dataset):
     def __init__(self):
         self.images = os.listdir(os.path.join(os.curdir, ContrastiveLearningDataPretext.imgs_path))
 
-    def build_data(self, image_label):
-        abs_path = os.path.join(os.curdir, ContrastiveLearningDataPretext.imgs_path)
-        img_path = os.path.join(abs_path, image_label)
-        img = Image.open(os.path.join(os.curdir, img_path))
-        tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
-                                                           torchvision.transforms.Normalize((.5, .5, .5),
-                                                                                            (.5, .5, .5))])
-        img = tensor_converter(img)
-        augmented_1 = self.augment_image(img)
-        augmented_2 = self.augment_image(img)
-        return augmented_1, augmented_2
-
-    def augment_image(self, x):
-        # Step 1: random crop and resize
-        # Step 2: random colour distortion
-        # Step 3: random gaussian blur
-        # output: a randomly augmented image
-        augmenter = torchvision.transforms.Compose([torchvision.transforms.RandomResizedCrop((x.shape[1], x.shape[2])),
-                                                    torchvision.transforms.ColorJitter((1, 2), 2, 2, 0.5),
-                                                    torchvision.transforms.GaussianBlur(3)])
-        return augmenter(x)
+    # def build_data(self, image_label):
+    #     abs_path = os.path.join(os.curdir, ContrastiveLearningDataPretext.imgs_path)
+    #     img_path = os.path.join(abs_path, image_label)
+    #     img = Image.open(os.path.join(os.curdir, img_path))
+    #     tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
+    #                                                        torchvision.transforms.Normalize((.5, .5, .5),
+    #                                                                                         (.5, .5, .5))])
+    #     img = tensor_converter(img)
+    #     augmented_1 = self.augment_image(img)
+    #     augmented_2 = self.augment_image(img)
+    #     return augmented_1, augmented_2
+    #
+    # def augment_image(self, x):
+    #     # Step 1: random crop and resize
+    #     # Step 2: random colour distortion
+    #     # Step 3: random gaussian blur
+    #     # output: a randomly augmented image
+    #     augmenter = torchvision.transforms.Compose([torchvision.transforms.RandomResizedCrop((x.shape[1], x.shape[2])),
+    #                                                 torchvision.transforms.ColorJitter((1, 2), 2, 2, 0.5),
+    #                                                 torchvision.transforms.GaussianBlur(3)])
+    #     return augmenter(x)
 
     def visualize_image(self, x):
         plt.figure(figsize=(16, 16))
@@ -127,8 +128,15 @@ class ContrastiveLearningDataPretext(Dataset):
         plt.close()
 
     def __getitem__(self, idx):
-        aug_1, aug_2 = self.build_data(self.images[idx])
-        return aug_1, aug_2
+        x = self.images[idx]
+        abs_path = os.path.join(os.curdir, ContrastiveLearningDataPretext.imgs_path)
+        img_path = os.path.join(abs_path, x)
+        img = Image.open(os.path.join(os.curdir, img_path))
+        tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
+                                                           torchvision.transforms.Normalize((.5, .5, .5),
+                                                                                            (.5, .5, .5))])
+        img = tensor_converter(img)
+        return img
 
     def __len__(self):
         return len(self.images)
@@ -175,15 +183,14 @@ class JigsawDataPretext(Dataset):
 # print()
 
 # dataset = ContrastiveLearningDataPretext()
-# dataloader = DataLoader(dataset, batch_size=10, shuffle=True)
-# for image in dataloader:
-#     for aug1, aug2 in zip(image[0], image[1]):
-#         dataset.visualize_image(aug1)
-#         dataset.visualize_image(aug2)
+# dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
+# for batch in dataloader:
+#     # each batch contains N images, therefore the dimensions are [N, 3, 128, 128]
+#     pass
 
-# dataset = ContextRestorationDataPretext(15)
-# dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
-# for image in dataloader:
-#     for original, corrupted in zip(image[0], image[1]):
-#         dataset.visualize_image(original)
-#         dataset.visualize_image(corrupted)
+dataset = ContextRestorationDataPretext(15)
+dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
+for image in dataloader:
+    for original, corrupted in zip(image[0], image[1]):
+        dataset.visualize_image(original)
+        dataset.visualize_image(corrupted)
