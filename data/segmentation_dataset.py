@@ -2,6 +2,7 @@ from torch.utils.data import Dataset, DataLoader
 import os
 from PIL import Image
 import torchvision
+import matplotlib.pyplot as plt
 
 
 class SegmentationDataset(Dataset):
@@ -46,6 +47,15 @@ class SegmentationDataset(Dataset):
 
     def __len__(self):
         return len(self.data)
+
+    def visualize_image(self, x):
+        plt.figure(figsize=(16, 16))
+        x = x.permute(1, 2, 0)
+        x = (x * 0.5) + 0.5
+        plt.imshow(x)
+        plt.axis('off')
+        plt.show()
+        plt.close()
 
 # dataset = SegmentationDataset(mode='train')
 # dataloader = DataLoader(dataset, batch_size=12, shuffle=True)

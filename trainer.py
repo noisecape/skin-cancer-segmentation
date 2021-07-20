@@ -1,10 +1,12 @@
 import torch.nn
+import torch
 from data.pretext_datasets import ContextRestorationDataPretext, ContrastiveLearningDataPretext, JigsawDataPretext
 from torch.utils.data import DataLoader
 from data.segmentation_dataset import SegmentationDataset
 from model.context_restoration import ContextRestoration
 from model.contrastive_learning import SimCLR
 from model.jigsaw import JiGen
+from model.utils.criterions import ContrastiveLoss
 from abc import ABC, abstractmethod
 from tqdm import tqdm
 import numpy as np
@@ -13,6 +15,52 @@ from PIL import Image
 import os
 import torchvision
 import matplotlib.pyplot as plt
+
+
+def get_jigsaw_pretext(batch_size):
+    model = JiGen()
+    dataset = JigsawDataPretext()
+    dataloader_params = {'shuffle': True, 'batch_size': batch_size}
+    dataloader = DataLoader(dataset, **dataloader_params)
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters())
+    return dataloader, model, optimizer, criterion
+
+
+def get_context_restoration_pretext(batch_size):
+    model = ContextRestoration(in_channel=3, out_channel=3)
+    dataset = ContextRestorationDataPretext(T=20)
+    dataloader_params = {'shuffle': True, 'batch_size': batch_size}
+    dataloader = DataLoader(dataset, **dataloader_params)
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters())
+    return dataloader, model, optimizer, criterion
+
+
+def get_contrastive_learning_pretext(batch_size):
+    model = SimCLR()
+    dataset = ContrastiveLearningDataPretext()
+    dataloader_params = {'shuffle': True, 'batch_size': batch_size}
+    dataloader = DataLoader(dataset, **dataloader_params)
+    criterion = ContrastiveLoss()
+    optimizer = torch.optim.Adam(model.parameters())
+    return dataloader, model, optimizer, criterion
+
+
+def get_segmentation(batch_size, technique):
+    if technique == 'jigsaw':
+        model = JiGen()
+    elif technique == 'context_restoration':
+        model = ContextRestoration(in_channel=3, out_channel=1)
+    elif technique == 'contrastive_learning':
+        model = SimCLR()
+    dataset = SegmentationDataset(mode='train')
+    dataloader_params = {'shuffle': True, 'batch_size': batch_size}
+    dataloader = DataLoader(dataset, **dataloader_params)
+    criterion = torch.nn.BCEWithLogitsLoss()
+    optimizer = torch.optim.Adam(model.parameters())
+    return dataloader, model, optimizer, criterion
+
 
 class Trainer(ABC):
 
@@ -134,8 +182,8 @@ class JigsawTrainer(Trainer):
             loop = tqdm(enumerate(dataloader), total=len(dataloader), leave=False)
             for idx, batch in loop:
                 img_batch, labels = self.get_data(batch, permutation_set)
-                img_batch = torch.permute(img_batch, (1, 0, 2, 3, 4))
-                labels = torch.permute(labels, (1, 0))
+                img_batch = img_batch.permute((1, 0, 2, 3, 4))
+                labels = labels.permute((1, 0))
                 for imgs, label in zip(img_batch, labels):
                     output = model(imgs, pretext=True)
                     loss = criterion(output, label)
@@ -163,10 +211,9 @@ class ContrastiveLearningTrainer(Trainer):
         model.train()
         for e in range(self.n_epochs):
             loop = tqdm(enumerate(dataloader), total=len(dataloader), leave=False)
-            for idx, (aug1, aug2) in loop:
-                processed_1 = model(aug1)
-                processed_2 = model(aug2)
-                loss = criterion(processed_1, processed_2)
+            for idx, x in loop:
+                aug_1, aug_2 = model(x, pretext=True)
+                loss = criterion(aug_1, aug_2)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -188,7 +235,7 @@ class ContextRestorationTrainer(Trainer):
         for e in range(self.n_epochs):
             loop = tqdm(enumerate(dataloader), total=len(dataloader), leave=False)
             for idx, (corrupted, original) in loop:
-                restored = model(corrupted)
+                restored = model(corrupted, pretext=True)
                 loss = criterion(restored, original)
                 optimizer.zero_grad()
                 loss.backward()
@@ -200,13 +247,23 @@ class ContextRestorationTrainer(Trainer):
         # save model
 
 
-model = JiGen()
-dataset = JigsawDataPretext()
-dataloader_params = {'shuffle': True, 'batch_size': 64}
-dataloader = DataLoader(dataset, **dataloader_params)
-criterion = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters())
+# Jigsaw
+# trainer = JigsawTrainer(n_epochs=5, P=30, N=3)
+# dataloader_p, model_p, optimizer_p, criterion_p = get_jigsaw_pretext(batch_size=64)
+# trainer.train_pretext(dataloader_p, model_p, optimizer_p, criterion_p)
+# dataloader_s, model_s, optimizer_s, criterion_s = get_jigsaw_segmentation(batch_size=64, technique='jigsaw')
+# trainer.train_segmentation(dataloader_s, model_s, optimizer_s, criterion_s)
 
-trainer = JigsawTrainer(5, P=30, N=3)
-trainer.train_pretext(dataloader, model, optimizer, criterion)
+# Context Restoration
+# trainer = ContextRestorationTrainer(n_epochs=5)
+# dataloader_p, model_p, optimizer_p, criterion_p = get_context_restoration_pretext(batch_size=64)
+# trainer.train_pretext(dataloader_p, model_p, optimizer_p, criterion_p)
+# dataloader_s, model_s, optimizer_s, criterion_s = get_segmentation(batch_size=64, technique='context_restoration')
+# trainer.train_segmentation(dataloader_s, model_s, optimizer_s, criterion_s)
 
+# Contrastive Learning
+# trainer = ContrastiveLearningTrainer(n_epochs=5)
+# dataloader_p, model_p, optimizer_p, criterion_p = get_contrastive_learning_pretext(batch_size=64)
+# trainer.train_pretext(dataloader_p, model_p, optimizer_p, criterion_p)
+# dataloader_s, model_s, optimizer_s, criterion_s = get_segmentation(batch_size=64, technique='contrastive_learning')
+# trainer.train_segmentation(dataloader_s, model_s, optimizer_s, criterion_s)

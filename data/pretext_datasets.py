@@ -91,7 +91,7 @@ class ContextRestorationDataPretext(Dataset):
 
 class ContrastiveLearningDataPretext(Dataset):
 
-    imgs_path = 'Resized/Unlabelled'
+    imgs_path = 'data/Resized/Unlabelled'
 
     def __init__(self):
         self.images = os.listdir(os.path.join(os.curdir, ContrastiveLearningDataPretext.imgs_path))
@@ -188,9 +188,9 @@ class JigsawDataPretext(Dataset):
 #     # each batch contains N images, therefore the dimensions are [N, 3, 128, 128]
 #     pass
 
-dataset = ContextRestorationDataPretext(15)
-dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
-for image in dataloader:
-    for original, corrupted in zip(image[0], image[1]):
-        dataset.visualize_image(original)
-        dataset.visualize_image(corrupted)
+# dataset = ContextRestorationDataPretext(15)
+# dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
+# for image in dataloader:
+#     for original, corrupted in zip(image[0], image[1]):
+#         dataset.visualize_image(original)
+#         dataset.visualize_image(corrupted)
