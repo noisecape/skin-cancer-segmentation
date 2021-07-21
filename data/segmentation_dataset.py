@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 
 class SegmentationDataset(Dataset):
 
-    imgs_path = 'data/Resized/Labelled/Images'
-    gt_path = 'data/Resized/Labelled/Groundtruth'
+    imgs_path = 'Resized/Labelled/Images'
+    gt_path = 'Resized/Labelled/Groundtruth'
 
     def __init__(self, mode, split_perc=[0.7, 0.1, 0.2]):
         super(SegmentationDataset, self).__init__()
@@ -35,8 +35,8 @@ class SegmentationDataset(Dataset):
     def __getitem__(self, idx):
         img_path = os.path.join(SegmentationDataset.imgs_path, self.data[idx][0])
         gt_path = os.path.join(SegmentationDataset.gt_path, self.data[idx][1])
-        img = Image.open(os.path.join(os.curdir, img_path))
-        gt = Image.open(os.path.join(os.curdir, gt_path))
+        img = Image.open(os.path.join(os.curdir, img_path)).convert("RGB")
+        gt = Image.open(os.path.join(os.curdir, gt_path)).convert("L")
         tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
                                                            torchvision.transforms.Normalize((0.5, 0.5, 0.5),
                                                                                             (0.5, 0.5, 0.5))])
@@ -57,7 +57,9 @@ class SegmentationDataset(Dataset):
         plt.show()
         plt.close()
 
+
 # dataset = SegmentationDataset(mode='train')
-# dataloader = DataLoader(dataset, batch_size=12, shuffle=True)
-# for item in dataloader:
-#     print(item)
+# dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
+# for batch in dataloader:
+#     print(batch[0])
+#     print(batch[1])

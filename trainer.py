@@ -212,8 +212,8 @@ class ContrastiveLearningTrainer(Trainer):
         for e in range(self.n_epochs):
             loop = tqdm(enumerate(dataloader), total=len(dataloader), leave=False)
             for idx, x in loop:
-                aug_1, aug_2 = model(x, pretext=True)
-                loss = criterion(aug_1, aug_2)
+                processed_1, processed_2 = model(x, pretext=True)
+                loss = criterion(processed_1, processed_2)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -234,16 +234,19 @@ class ContextRestorationTrainer(Trainer):
         model.train()
         for e in range(self.n_epochs):
             loop = tqdm(enumerate(dataloader), total=len(dataloader), leave=False)
+            running_loss = []
             for idx, (corrupted, original) in loop:
                 restored = model(corrupted, pretext=True)
                 loss = criterion(restored, original)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+                running_loss.append(loss.item())
             # save checkpoint
+
             # print statistics
             loop.set_description(f"Epoch [{e}]/[{self.n_epochs}]")
-            loop.set_postfix(loss=loss.item())
+            loop.set_postfix(loss=torch.sum(running_loss)/len(dataloader))
         # save model
 
 
@@ -255,11 +258,11 @@ class ContextRestorationTrainer(Trainer):
 # trainer.train_segmentation(dataloader_s, model_s, optimizer_s, criterion_s)
 
 # Context Restoration
-# trainer = ContextRestorationTrainer(n_epochs=5)
-# dataloader_p, model_p, optimizer_p, criterion_p = get_context_restoration_pretext(batch_size=64)
-# trainer.train_pretext(dataloader_p, model_p, optimizer_p, criterion_p)
-# dataloader_s, model_s, optimizer_s, criterion_s = get_segmentation(batch_size=64, technique='context_restoration')
-# trainer.train_segmentation(dataloader_s, model_s, optimizer_s, criterion_s)
+trainer = ContextRestorationTrainer(n_epochs=5)
+dataloader_p, model_p, optimizer_p, criterion_p = get_context_restoration_pretext(batch_size=64)
+trainer.train_pretext(dataloader_p, model_p, optimizer_p, criterion_p)
+dataloader_s, model_s, optimizer_s, criterion_s = get_segmentation(batch_size=64, technique='context_restoration')
+trainer.train_segmentation(dataloader_s, model_s, optimizer_s, criterion_s)
 
 # Contrastive Learning
 # trainer = ContrastiveLearningTrainer(n_epochs=5)
