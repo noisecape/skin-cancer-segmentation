@@ -3,6 +3,8 @@ import torch.nn as nn
 import os
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
 
 class DoubleConv(nn.Module):
 
@@ -23,14 +25,14 @@ class DoubleConv(nn.Module):
 
 class Unet(nn.Module):
 
-    def __init__(self, in_channel, out_channel, features=[64, 128, 256, 512]):
+    def __init__(self, in_channel, features=[64, 128, 256, 512]):
         super(Unet, self).__init__()
         self.skip_connections = []
         self.ups = nn.ModuleList()
         self.downs = nn.ModuleList()
-        self.upscale = []
+        self.upscale = nn.ModuleList()
         self.features = features
-        for f in features:
+        for f in self.features:
             self.downs.append(DoubleConv(in_channel, f))
             in_channel = f
         self.pooling = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -63,9 +65,9 @@ class Unet(nn.Module):
 
 class ContextRestoration(nn.Module):
 
-    def __init__(self, in_channel=3, out_channel=1):
+    def __init__(self, in_channel=3):
         super(ContextRestoration, self).__init__()
-        self.unet = Unet(in_channel, out_channel)
+        self.unet = Unet(in_channel).to(DEVICE)
 
     def forward(self, x, pretext=False):
         return self.unet(x, pretext=pretext)

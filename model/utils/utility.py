@@ -1,12 +1,13 @@
 import torch
+import os
 
 
-def save_model():
-    pass
+def save_model(model, path):
+    torch.save(model.state_dict(), path)
 
 
-def save_checkpoint():
-    pass
+def save_checkpoint(checkpoint, path):
+    torch.save(checkpoint, path)
 
 
 def load_model():
