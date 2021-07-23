@@ -3,6 +3,7 @@ import os
 from PIL import Image
 import torchvision
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 class SegmentationDataset(Dataset):
@@ -19,7 +20,7 @@ class SegmentationDataset(Dataset):
             start_idx = 0
             end_idx = int(len(self.imgs_labels) * split_perc[0])
             self.data = self.build_data(start_idx, end_idx)
-        elif mode == 'val':
+        elif mode == 'eval':
             start_idx = int(len(self.imgs_labels) * split_perc[0])
             end_idx = start_idx + int(len(self.imgs_labels) * split_perc[1])
             self.data = self.build_data(start_idx, end_idx)
@@ -36,7 +37,8 @@ class SegmentationDataset(Dataset):
         img_path = os.path.join(SegmentationDataset.imgs_path, self.data[idx][0])
         gt_path = os.path.join(SegmentationDataset.gt_path, self.data[idx][1])
         img = Image.open(os.path.join(os.curdir, img_path)).convert("RGB")
-        gt = Image.open(os.path.join(os.curdir, gt_path)).convert("L")
+        gt = np.array(Image.open(os.path.join(os.curdir, gt_path)).convert('L'), dtype=np.float32)
+        gt[gt > 0] = 1.0
         tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
                                                            torchvision.transforms.Normalize((0.5, 0.5, 0.5),
                                                                                             (0.5, 0.5, 0.5))])
