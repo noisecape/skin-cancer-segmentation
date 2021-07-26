@@ -5,7 +5,7 @@ import os
 from PIL import Image
 
 
-def resize_images_unlabelled(folder_path, new_imgs_folder="./Resized/Unlabelled", img_size=128):
+def resize_images_unlabelled(folder_path, new_imgs_folder="./Resized/Unlabelled", img_size=64):
     # if the folder already exists, then return. Otherwise, create a new folder
     # with the resized images
     if os.path.exists(new_imgs_folder):
@@ -32,7 +32,7 @@ def resize_images_unlabelled(folder_path, new_imgs_folder="./Resized/Unlabelled"
     print('Done')
 
 
-def resize_images_labelled(folder_path, new_imgs_folder="./Resized/Labelled", img_size=128):
+def resize_images_labelled(folder_path, new_imgs_folder="./Resized/Labelled", img_size=64):
     if not os.path.exists(new_imgs_folder):
         os.mkdir(new_imgs_folder)
     if not os.path.exists(os.path.join(new_imgs_folder, 'Images')):
@@ -97,13 +97,23 @@ there will be two subfolders 'Images' and 'Ground_truth' which will contain the 
 ground truths.
 """
 
-path_unlabelled = ['/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/ISIC2018_Task3_Training_Input',
-                   '/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Testing/ISIC2018_Task1-2_Test_Input']
+# PATH FOR MAC
+# path_unlabelled = ['/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/ISIC2018_Task3_Training_Input',
+#                    '/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Testing/ISIC2018_Task1-2_Test_Input']
 
-path_labelled = [('/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Training/ISIC2018_Task1-2_Training_Input',
-                  '/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Training/ISIC2018_Task1_Training_GroundTruth'),
-                 ('/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Validation/ISIC2018_Task1-2_Validation_Input',
-                  '/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Validation/ISIC2018_Task1_Validation_GroundTruth')]
+# path_labelled = [('/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Training/ISIC2018_Task1-2_Training_Input',
+#                   '/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Training/ISIC2018_Task1_Training_GroundTruth'),
+#                  ('/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Validation/ISIC2018_Task1-2_Validation_Input',
+#                   '/Users/tommasocapecchi/City/Master_Thesis/ISIC_2018/Validation/ISIC2018_Task1_Validation_GroundTruth')]
+
+# PATH FOR WINDOWS
+path_unlabelled = ['C:/Users/Noisecape/PycharmProjects/ISIC_2018/ISIC2018_Task3_Training_Input',
+                   'C:/Users/Noisecape/PycharmProjects/ISIC_2018/Testing/ISIC2018_Task1-2_Test_Input']
+
+path_labelled = [('C:/Users/Noisecape/PycharmProjects/ISIC_2018/Training/ISIC2018_Task1-2_Training_Input',
+                 'C:/Users/Noisecape/PycharmProjects/ISIC_2018/Training/ISIC2018_Task1_Training_GroundTruth'),
+                 ('C:/Users/Noisecape/PycharmProjects/ISIC_2018/Validation/ISIC2018_Task1-2_Validation_Input',
+                  'C:/Users/Noisecape/PycharmProjects/ISIC_2018/Validation/ISIC2018_Task1_Validation_GroundTruth')]
 
 # plot_data_dimensions(path_unlabelled, path_labelled)
 
