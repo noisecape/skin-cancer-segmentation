@@ -146,15 +146,24 @@ class JigsawDataPretext(Dataset):
 
     unlabelled_path = 'data/Resized/Unlabelled'
 
-    def __init__(self):
+    def __init__(self, mode='train', split=[0.8, 0.2]):
         super(JigsawDataPretext, self).__init__()
         self.imgs_label = os.listdir(os.path.join(os.curdir, JigsawDataPretext.unlabelled_path))
+        self.mode = mode
+        self.split = split
+        self.data = self.get_data()
+
+    def get_data(self):
+        if self.mode == 'train':
+            return self.imgs_label[:int(len(self.imgs_label)*self.split[0])]
+        elif self.mode == 'val':
+            return self.imgs_label[int(len(self.imgs_label) * self.split[0]):]
 
     def __getitem__(self, idx):
-        return self.imgs_label[idx]
+        return self.data[idx]
 
     def __len__(self):
-        return len(self.imgs_label)
+        return len(self.data)
 
     def visualize_image(self, x):
         plt.figure(figsize=(16, 16))

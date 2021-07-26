@@ -18,7 +18,7 @@ def load_model(model, path):
 def load_checkpoint(model, optimizer, path):
     checkpoint = torch.load(path, map_location=DEVICE)
     epoch = checkpoint['epoch']
-    model.load_state_dict(checkpoint['state_dict'])
+    model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     loss_history = checkpoint['loss_history']
     val_history = checkpoint['val_history']

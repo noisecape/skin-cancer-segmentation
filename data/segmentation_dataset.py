@@ -20,7 +20,7 @@ class SegmentationDataset(Dataset):
             start_idx = 0
             end_idx = int(len(self.imgs_labels) * split_perc[0])
             self.data = self.build_data(start_idx, end_idx)
-        elif mode == 'eval':
+        elif mode == 'val':
             start_idx = int(len(self.imgs_labels) * split_perc[0])
             end_idx = start_idx + int(len(self.imgs_labels) * split_perc[1])
             self.data = self.build_data(start_idx, end_idx)
