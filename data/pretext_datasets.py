@@ -17,10 +17,19 @@ class ContextRestorationDataPretext(Dataset):
 
     imgs_path = 'data/Resized/Unlabelled'
 
-    def __init__(self, T):
+    def __init__(self, mode='train', T=20, split=[0.8, 0.2]):
         super(ContextRestorationDataPretext, self).__init__()
         self.T = T
         self.images = os.listdir(os.path.join(os.curdir, ContextRestorationDataPretext.imgs_path))
+        self.mode = mode
+        self.split = split
+        self.data = self.get_data()
+
+    def get_data(self):
+        if self.mode == 'train':
+            return self.images[:int(len(self.images) * self.split[0])]
+        elif self.mode == 'val':
+            return self.images[int(len(self.images) * self.split[0]):]
 
     def build_data(self, img_label):
         img_path = os.path.join(ContextRestorationDataPretext.imgs_path, img_label)
@@ -82,41 +91,29 @@ class ContextRestorationDataPretext(Dataset):
         plt.close()
 
     def __getitem__(self, idx):
-        original, corrupted = self.build_data(self.images[idx])
+        original, corrupted = self.build_data(self.data[idx])
         return original, corrupted
 
     def __len__(self):
-        return len(self.images)
+        return 50
 
 
 class ContrastiveLearningDataPretext(Dataset):
 
     imgs_path = 'data/Resized/Unlabelled'
 
-    def __init__(self):
+    def __init__(self, mode='train', split=[0.8, 0.2]):
+        super(ContrastiveLearningDataPretext, self).__init__()
         self.images = os.listdir(os.path.join(os.curdir, ContrastiveLearningDataPretext.imgs_path))
+        self.mode = mode
+        self.split = split
+        self.data = self.get_data()
 
-    # def build_data(self, image_label):
-    #     abs_path = os.path.join(os.curdir, ContrastiveLearningDataPretext.imgs_path)
-    #     img_path = os.path.join(abs_path, image_label)
-    #     img = Image.open(os.path.join(os.curdir, img_path))
-    #     tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
-    #                                                        torchvision.transforms.Normalize((.5, .5, .5),
-    #                                                                                         (.5, .5, .5))])
-    #     img = tensor_converter(img)
-    #     augmented_1 = self.augment_image(img)
-    #     augmented_2 = self.augment_image(img)
-    #     return augmented_1, augmented_2
-    #
-    # def augment_image(self, x):
-    #     # Step 1: random crop and resize
-    #     # Step 2: random colour distortion
-    #     # Step 3: random gaussian blur
-    #     # output: a randomly augmented image
-    #     augmenter = torchvision.transforms.Compose([torchvision.transforms.RandomResizedCrop((x.shape[1], x.shape[2])),
-    #                                                 torchvision.transforms.ColorJitter((1, 2), 2, 2, 0.5),
-    #                                                 torchvision.transforms.GaussianBlur(3)])
-    #     return augmenter(x)
+    def get_data(self):
+        if self.mode == 'train':
+            return self.images[:int(len(self.images) * self.split[0])]
+        elif self.mode == 'val':
+            return self.images[int(len(self.images) * self.split[0]):]
 
     def visualize_image(self, x):
         plt.figure(figsize=(16, 16))
@@ -128,7 +125,7 @@ class ContrastiveLearningDataPretext(Dataset):
         plt.close()
 
     def __getitem__(self, idx):
-        x = self.images[idx]
+        x = self.data[idx]
         abs_path = os.path.join(os.curdir, ContrastiveLearningDataPretext.imgs_path)
         img_path = os.path.join(abs_path, x)
         img = Image.open(os.path.join(os.curdir, img_path))
@@ -139,7 +136,7 @@ class ContrastiveLearningDataPretext(Dataset):
         return img
 
     def __len__(self):
-        return len(self.images)
+        return len(self.data)
 
 
 class JigsawDataPretext(Dataset):
@@ -154,6 +151,8 @@ class JigsawDataPretext(Dataset):
         self.data = self.get_data()
 
     def get_data(self):
+        # The split involves only the training and the validation as the testing phase
+        # is done during fine-tune, on a different set of images.
         if self.mode == 'train':
             return self.imgs_label[:int(len(self.imgs_label)*self.split[0])]
         elif self.mode == 'val':

@@ -67,6 +67,7 @@ class ContextRestoration(nn.Module):
 
     def __init__(self, in_channel=3):
         super(ContextRestoration, self).__init__()
+        self.name = 'context_restoration'
         self.unet = Unet(in_channel).to(DEVICE)
 
     def forward(self, x, pretext=False):

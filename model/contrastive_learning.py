@@ -8,10 +8,12 @@ from PIL import Image
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
+
 class SimCLR(nn.Module):
 
     def __init__(self, out_dim=2048):
         super(SimCLR, self).__init__()
+        self.name = 'contrastive_learning'
         resnet = resnet50()
         self.backbone = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
                                       resnet.layer1, resnet.layer2, resnet.layer3,
@@ -37,12 +39,8 @@ class SimCLR(nn.Module):
             nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-            # output [N x 64 x 64 x 64]
-            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            # output [N x 1 x 128 x 128]
-            nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=1, bias=False),
+            # output [N x 1 x 64 x 64]
+            nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1, bias=False),
             # no sigmoid because the loss is BCEWithLogitLoss
             # which implicitly implements the Sigmoid function.
         )
@@ -50,7 +48,7 @@ class SimCLR(nn.Module):
     def augment_data(self, img):
         augmenter = torchvision.transforms.Compose([torchvision.transforms.RandomResizedCrop((img.shape[1],
                                                                                               img.shape[2])),
-                                                    torchvision.transforms.ColorJitter((1, 2), 2, 2, 0.5),
+                                                    torchvision.transforms.ColorJitter(0.8, 0.8, 0.8, 0.2),
                                                     torchvision.transforms.GaussianBlur(3)])
         augmented_1 = augmenter(img)
         augmented_2 = augmenter(img)

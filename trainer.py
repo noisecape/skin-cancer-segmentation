@@ -50,24 +50,61 @@ def get_jigsaw_pretext(batch_size, split=[0.8, 0.2]):
     return data, phase
 
 
-def get_context_restoration_pretext(batch_size):
-    model = ContextRestoration(in_channel=3).to(DEVICE)
-    dataset = ContextRestorationDataPretext(T=20)
-    dataloader_params = {'shuffle': True, 'batch_size': batch_size}
-    dataloader = DataLoader(dataset, **dataloader_params)
-    criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters())
-    return dataloader, model, optimizer, criterion
-
-
 def get_contrastive_learning_pretext(batch_size):
     model = SimCLR().to(DEVICE)
-    dataset = ContrastiveLearningDataPretext()
+    train_data = ContrastiveLearningDataPretext(mode='train')
+    val_data = ContrastiveLearningDataPretext(mode='val')
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}
-    dataloader = DataLoader(dataset, **dataloader_params)
+    dataloader_train = DataLoader(train_data, **dataloader_params)
+    dataloader_val = DataLoader(val_data, **dataloader_params)
     criterion = ContrastiveLoss().to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters())
-    return dataloader, model, optimizer, criterion
+    epoch = 0
+    loss_history = []
+    val_history = []
+    phase = 'pretext'
+    # check if the model has already been trained
+    if os.path.exists(os.path.join(saved_files_path, 'contrastive_model_pretext.pth')):
+        model_path = os.path.join(saved_files_path, 'contrastive_model_pretext.pth')
+        model = load_model(model, path=model_path)
+        phase = 'segmentation'
+    elif os.path.exists(os.path.join(saved_files_path, 'contrastive_checkpoint_pretext.pth')):
+        model_path = os.path.join(saved_files_path, 'contrastive_checkpoint_pretext.pth')
+        epoch, model, optimizer, loss_history, val_history = load_checkpoint(model, optimizer, model_path)
+    data = {'model': model, 'optimizer': optimizer,
+            'train_loader': dataloader_train, 'val_loader': dataloader_val,
+            'criterion': criterion, 'epoch': epoch,
+            'loss_history': loss_history, 'val_history': val_history}
+    return data, phase
+
+
+def get_context_restoration_pretext(batch_size):
+    model = ContextRestoration(in_channel=3).to(DEVICE)
+    train_data = ContextRestorationDataPretext(mode='train')
+    val_data = ContextRestorationDataPretext(mode='val')
+    dataloader_params = {'shuffle': True, 'batch_size': batch_size}
+    dataloader_train = DataLoader(train_data, **dataloader_params)
+    dataloader_val = DataLoader(val_data, **dataloader_params)
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters())
+    epoch = 0
+    loss_history = []
+    val_history = []
+    phase = 'pretext'
+
+    if os.path.exists(os.path.join(saved_files_path, 'context_model_pretext.pth')):
+        model_path = os.path.join(saved_files_path, 'context_model_pretext.pth')
+        model = load_model(model, path=model_path)
+        phase = 'segmentation'
+    elif os.path.exists(os.path.join(saved_files_path, 'context_checkpoint_pretext.pth')):
+        model_path = os.path.join(saved_files_path, 'context_checkpoint_pretext.pth')
+        epoch, model, optimizer, loss_history, val_history = load_checkpoint(model, optimizer, model_path)
+
+    data = {'model': model, 'optimizer': optimizer,
+            'train_loader': dataloader_train, 'val_loader': dataloader_val,
+            'criterion': criterion, 'epoch': epoch,
+            'loss_history': loss_history, 'val_history': val_history}
+    return data, phase
 
 
 def get_segmentation(model, optimizer, batch_size, technique):
@@ -80,25 +117,45 @@ def get_segmentation(model, optimizer, batch_size, technique):
     epoch = 0
     loss_history = []
     val_history = []
+    phase = 'fine_tune'
     if technique == 'jigsaw':
-        if os.path.exists(os.path.join(saved_files_path, 'segmentation_model_jigsaw_.pth')):
-            model_path = os.path.join(saved_files_path, 'segmentation_model_jigsaw_.pth')
+
+        if os.path.exists(os.path.join(saved_files_path, 'segmentation_model_jigsaw.pth')):
+            model_path = os.path.join(saved_files_path, 'segmentation_model_jigsaw.pth')
             model = load_model(model, path=model_path)
+            phase = 'completed'
         elif os.path.exists(os.path.join(saved_files_path, 'segmentation_checkpoint_jigsaw.pth')):
             model_path = os.path.join(saved_files_path, 'segmentation_checkpoint_jigsaw.pth')
             epoch, model, optimizer, loss_history, val_history = load_checkpoint(model, optimizer, model_path)
-    elif technique == 'context_restoration':
-        model = ContextRestoration(in_channel=3)
+
     elif technique == 'contrastive_learning':
-        model = SimCLR().to(DEVICE)
+
+        if os.path.exists(os.path.join(saved_files_path, 'segmentation_model_contrastive.pth')):
+            model_path = os.path.join(saved_files_path, 'segmentation_model_contrastive.pth')
+            model = load_model(model, path=model_path)
+            phase = 'completed'
+        elif os.path.exists(os.path.join(saved_files_path, 'segmentation_checkpoint_contrastive.pth')):
+            model_path = os.path.join(saved_files_path, 'segmentation_checkpoint_contrastive.pth')
+            epoch, model, optimizer, loss_history, val_history = load_checkpoint(model, optimizer, model_path)
+
+    elif technique == 'context_restoration':
+
+        if os.path.exists(os.path.join(saved_files_path, 'segmentation_model_restoration.pth')):
+            model_path = os.path.join(saved_files_path, 'segmentation_model_restoration.pth')
+            model = load_model(model, path=model_path)
+            phase = 'completed'
+        elif os.path.exists(os.path.join(saved_files_path, 'segmentation_checkpoint_restoration.pth')):
+            model_path = os.path.join(saved_files_path, 'segmentation_checkpoint_restoration.pth')
+            epoch, model, optimizer, loss_history, val_history = load_checkpoint(model, optimizer, model_path)
+
     data = {'model': model, 'optimizer': optimizer,
             'train_loader': train_loader, 'val_loader': val_loader,
             'criterion': criterion, 'epoch': epoch,
             'loss_history': loss_history, 'val_history': val_history}
-    return data
+    return data, phase
 
 def get_eval_dataset():
-    dataset = SegmentationDataset('eval')
+    dataset = SegmentationDataset('test')
     dataloader_params = {'shuffle': True, 'batch_size': 1}
     dataloader = DataLoader(dataset, **dataloader_params)
     return dataloader
@@ -157,16 +214,25 @@ class Trainer(ABC):
         utility.save_model(model, path=os.path.join(os.curdir, 'saved_models/segmentation_model'+f'_{self.technique}'+'.pth'))
 
     def evaluate(self, dataloader, model, p_threshold, T=0.3):
+        output_path = os.path.join(os.curdir, f'saved_models/predictions_{model.name}')
+        prediction_samples = []
         model.eval()
         loop = tqdm(enumerate(dataloader), total=len(dataloader), leave=False)
-        total_imgs = len(dataloader)
         ious = []
         with torch.no_grad():
             for idx, batch in loop:
                 img = batch[0].to(DEVICE)
-                gt = batch[1].squeeze(1).view(-1).to(DEVICE)
-                output = torch.sigmoid(model(img))
-                prediction = (output > p_threshold).float().squeeze(0).view(-1)
+                # gt = batch[1].squeeze(1).view(-1).to(DEVICE)
+                gt = batch[1].to(DEVICE)
+                output = torch.sigmoid(model(img)).squeeze(0)
+                prediction = (output > p_threshold).float()
+                gt = gt.squeeze(0)
+                if random.random() > 0.5 and len(prediction_samples) < 10:
+                    prediction_samples.append((gt, prediction))
+                    torchvision.utils.save_image(gt, os.path.join(output_path, f'GT_{idx}.png'))
+                    torchvision.utils.save_image(prediction, os.path.join(output_path, f'PRED_{idx}.png'))
+                prediction = prediction.view(-1)
+                gt = gt.view(-1)
                 true_positives = torch.sum(torch.tensor([1.0 if p == 1.0 and g == 1.0 else 0.0
                                                          for p, g in zip(prediction, gt)]))
                 false_positives = torch.sum(torch.tensor([1.0 if p == 1.0 and g == 0.0 else 0.0
@@ -277,7 +343,6 @@ class JigsawTrainer(Trainer):
         plt.show()
         plt.close()
 
-
     def train_batch(self, train_loader, permutation_set, model, criterion, optimizer):
         running_loss_train = []
         for idx, batch in enumerate(train_loader):
@@ -297,7 +362,7 @@ class JigsawTrainer(Trainer):
         batch_loss = torch.sum(torch.tensor(running_loss_train)) / len(train_loader)
         return batch_loss
 
-    def evaluate(self, val_loader, permutation_set, model, criterion):
+    def validate(self, val_loader, permutation_set, model, criterion):
         running_loss_eval = []
         for idx, batch in enumerate(val_loader):
             img_batch, labels = self.get_data(batch, permutation_set)
@@ -322,7 +387,7 @@ class JigsawTrainer(Trainer):
             loss_history.append(batch_loss.item())
             # val loop
             model.eval()
-            val_loss = self.evaluate(val_loader, permutation_set, model, criterion)
+            val_loss = self.validate(val_loader, permutation_set, model, criterion)
             val_history.append(val_loss.item())
             # print statistics
             loop.set_description(f'Epoch processed')
@@ -347,37 +412,52 @@ class ContrastiveLearningTrainer(Trainer):
         super(ContrastiveLearningTrainer, self).__init__(n_epochs, technique='contrastive')
         self.n_epochs = n_epochs
 
-    def train_pretext(self, dataloader, model, optimizer, criterion):
-        model.train()
-        train_history = []
-        val_history = []
-        for e in range(self.n_epochs):
-            loop = tqdm(enumerate(dataloader), total=len(dataloader), leave=False)
-            running_loss = []
-            for idx, x in loop:
-                processed_1, processed_2 = model(x.to(DEVICE), pretext=True)
-                loss = criterion(processed_1.to(DEVICE), processed_2.to(DEVICE))
-                loop.set_description(f"Epoch [{idx}]/[{len(dataloader)}]")
-                loop.set_postfix(loss=loss.item())
-                running_loss.append(loss)
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+    def train_batch(self, train_loader, model, criterion, optimizer):
+        running_loss = []
+        for idx, x in enumerate(train_loader):
+            processed_1, processed_2 = model(x.to(DEVICE), pretext=True)
+            loss = criterion(processed_1.to(DEVICE), processed_2.to(DEVICE))
+            running_loss.append(loss)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        # print statistics
+        batch_loss = torch.sum(torch.tensor(running_loss)) / len(train_loader)
+        return batch_loss
+
+    def validate(self, val_loader, model, criterion):
+        running_loss_eval = []
+        for idx, x in enumerate(val_loader):
+            processed_1, processed_2 = model(x.to(DEVICE), pretext=True)
+            loss = criterion(processed_1.to(DEVICE), processed_2.to(DEVICE))
+            running_loss_eval.append(loss)
+        return torch.sum(torch.tensor(running_loss_eval)) / len(val_loader)
+
+    def train_pretext(self, train_loader, val_loader, model, optimizer, criterion, epoch, loss_history, val_history):
+        loop = tqdm(range(epoch, self.n_epochs), total=self.n_epochs - epoch, leave=False)
+        for e in loop:
+            model.train()
+            # train loop
+            batch_loss = self.train_batch(train_loader, model, criterion, optimizer)
+            loss_history.append(batch_loss.item())
+            # val loop
+            model.eval()
+            val_loss = self.validate(val_loader, model, criterion)
+            val_history.append(val_loss.item())
             # print statistics
-            batch_loss = torch.sum(torch.tensor(running_loss))/len(dataloader)
-            train_history.append(batch_loss.item())
-            print(f'Epoch [{e}]/[{self.n_epochs}], average_loss: {batch_loss:.4f}')
+            loop.set_description(f'Epoch processed')
+            loop.set_postfix(train_loss=loss_history[-1], val_loss=val_history[-1])
             # save checkpoint
             checkpoint = {
                 'epoch': e,
                 'model': model.state_dict(),
                 'optimizer': optimizer.state_dict(),
-                'train_history': train_history,
+                'loss_history': loss_history,
                 'val_history': val_history
             }
-            utility.save_checkpoint(checkpoint, path=os.path.join(os.curdir, 'model/contr_lear_checkpoint_pretext.pth'))
+            utility.save_checkpoint(checkpoint, path=os.path.join(os.curdir, 'saved_models/contrastive_checkpoint_pretext.pth'))
         # save model
-        utility.save_model(model, path=os.path.join(os.curdir, 'model/contr_lear_model_pretext.pth'))
+        utility.save_model(model, path=os.path.join(os.curdir, 'saved_models/contrastive_model_pretext.pth'))
 
 
 class ContextRestorationTrainer(Trainer):
@@ -386,62 +466,101 @@ class ContextRestorationTrainer(Trainer):
         super(ContextRestorationTrainer, self).__init__(n_epochs, technique='restoration')
         self.n_epochs = n_epochs
 
-    def train_pretext(self, dataloader, model, optimizer, criterion):
-        model.train()
-        train_history = []
-        val_history = []
-        for e in range(self.n_epochs):
-            loop = tqdm(enumerate(dataloader), total=len(dataloader), leave=False)
-            running_loss = []
-            for idx, (corrupted, original) in loop:
-                restored = model(corrupted.to(DEVICE), pretext=True)
-                loss = criterion(restored.to(DEVICE), original.to(DEVICE))
-                loop.set_description(f"Batch [{idx}]/[{len(dataloader)}]")
-                loop.set_postfix(loss=loss.item())
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                running_loss.append(loss.item())
-                torch.cuda.empty_cache()
+    def train_batch(self, train_loader, model, criterion, optimizer):
+        running_loss = []
+        for idx, (corrupted, original) in enumerate(train_loader):
+            restored = model(corrupted.to(DEVICE), pretext=True)
+            loss = criterion(restored.to(DEVICE), original.to(DEVICE))
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            running_loss.append(loss.item())
+            torch.cuda.empty_cache()
+        batch_loss = torch.sum(torch.tensor(running_loss)) / len(train_loader)
+        return batch_loss
+
+    def validate(self, val_loader, model, criterion):
+        running_loss_eval = []
+        for idx, (corrupted, original) in enumerate(val_loader):
+            restored = model(corrupted.to(DEVICE), pretext=True)
+            loss = criterion(restored.to(DEVICE), original.to(DEVICE))
+            running_loss_eval.append(loss.item())
+            torch.cuda.empty_cache()
+        batch_loss = torch.sum(torch.tensor(running_loss_eval)) / len(val_loader)
+        return batch_loss
+
+    def train_pretext(self, train_loader, val_loader, model, optimizer, criterion, epoch, loss_history, val_history):
+        loop = tqdm(range(epoch, self.n_epochs), total=self.n_epochs - epoch, leave=False)
+        for e in loop:
+            model.train()
+            # train
+            batch_loss = self.train_batch(train_loader, model, criterion, optimizer)
+            loss_history.append(batch_loss.item())
+            # validate
+            model.eval()
+            val_loss = self.validate(val_loader, model, criterion)
+            val_history.append(val_loss.item())
             # print statistics
-            batch_loss = torch.sum(torch.tensor(running_loss))/len(dataloader)
-            train_history.append(batch_loss.item())
-            print(f'Epoch [{e}]/[{self.n_epochs}], average_loss: {batch_loss:.4f}')
+            loop.set_description(f'Epoch processed')
+            loop.set_postfix(train_loss=loss_history[-1], val_loss=val_history[-1])
+            # save checkpoint
             checkpoint = {
                 'epoch': e,
                 'model': model.state_dict(),
                 'optimizer': optimizer.state_dict(),
-                'train_history': train_history,
+                'loss_history': loss_history,
                 'val_history': val_history
             }
-            # save checkpoint
-            utility.save_checkpoint(checkpoint, path=os.path.join(os.curdir, 'model/cxt_res_checkpoint_pretext.pth'))
+            utility.save_checkpoint(checkpoint, path=os.path.join(os.curdir, 'saved_models/context_checkpoint_pretext.pth'))
         # save model
-        utility.save_model(model, path=os.path.join(os.curdir, 'model/cxt_res_model_pretext.pth'))
+        utility.save_model(model, path=os.path.join(os.curdir, 'saved_models/context_model_pretext.pth'))
+
 
 # Jigsaw
-trainer = JigsawTrainer(n_epochs=1000, P=5, N=3, batch_size=32)
-data, phase = get_jigsaw_pretext(batch_size=32)
+# PRETEXT
+# trainer = JigsawTrainer(n_epochs=10, P=5, N=3, batch_size=32)
+# data_pretext, phase = get_jigsaw_pretext(batch_size=32)
 # if phase == 'pretext':
-#     trainer.train_pretext(**data)
-data = get_segmentation(data['model'], data['optimizer'], batch_size=32, technique='jigsaw')
-trainer.train_segmentation(**data)
-# dataloader_s, model_s, optimizer_s, criterion_s = get_segmentation(batch_size=64, technique='jigsaw')
-# trainer.train_segmentation(dataloader_s, model_s, optimizer_s, criterion_s)
-# dataloader_eval = get_eval_dataset()
-# trainer.evaluate(dataloader_eval, model_s, p_threshold=0.5, T=0.2)
-# trainer.visualize_prediction(model_s, dataloader_s, p_threshold=0.5)
+#     trainer.train_pretext(**data_pretext)
+# data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
+#                                             batch_size=32, technique='jigsaw')
+# FINETUNE
+# if phase == 'fine_tune':
+#     trainer.train_segmentation(**data_segmentation)
+# # otherwise the training is completed, load the model and evaluate
+# model = data_segmentation['model']
+# test_data = get_eval_dataset()
+# TEST
+# accuracy = trainer.evaluate(test_data, model, p_threshold=0.6)
 
 # Context Restoration
 # trainer = ContextRestorationTrainer(n_epochs=5)
-# dataloader_p, model_p, optimizer_p, criterion_p = get_context_restoration_pretext(batch_size=64)
-# trainer.train_pretext(dataloader_p, model_p, optimizer_p, criterion_p)
-# dataloader_s, model_s, optimizer_s, criterion_s = get_segmentation(batch_size=64, technique='context_restoration')
-# trainer.train_segmentation(dataloader_s, model_s, optimizer_s, criterion_s)
-
+# data_pretext, phase = get_context_restoration_pretext(batch_size=32)
+# if phase == 'pretext':
+#     trainer.train_pretext(**data_pretext)
+# data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
+#                                             batch_size=32, technique='context_restoration')
+# if phase == 'fine_tune':
+#     trainer.train_segmentation(**data_segmentation)
+#
+# model = data_segmentation['model']
+# test_data = get_eval_dataset()
+# # TEST
+# accuracy = trainer.evaluate(test_data, model, p_threshold=0.6)
 # Contrastive Learning
+# PRETEXT
 # trainer = ContrastiveLearningTrainer(n_epochs=5)
-# dataloader_p, model_p, optimizer_p, criterion_p = get_contrastive_learning_pretext(batch_size=64)
-# trainer.train_pretext(dataloader_p, model_p, optimizer_p, criterion_p)
-# dataloader_s, model_s, optimizer_s, criterion_s = get_segmentation(batch_size=64, technique='contrastive_learning')
-# trainer.train_segmentation(dataloader_s, model_s, optimizer_s, criterion_s)
+# data_pretext, phase = get_contrastive_learning_pretext(batch_size=32)
+# if phase == 'pretext':
+#     trainer.train_pretext(**data_pretext)
+# data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
+#                                             batch_size=32, technique='contrastive_learning')
+# # FINETUNE
+# if phase == 'fine_tune':
+#     trainer.train_segmentation(**data_segmentation)
+# # # otherwise the training is completed, load the model and evaluate
+# model = data_segmentation['model']
+# test_data = get_eval_dataset()
+# # TEST
+# accuracy = trainer.evaluate(test_data, model, p_threshold=0.6)
+# print(accuracy)

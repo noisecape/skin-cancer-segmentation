@@ -11,6 +11,7 @@ class JiGen(nn.Module):
 
     def __init__(self, P=30):
         super(JiGen, self).__init__()
+        self.name = 'jigsaw'
         self.P = P
         self.resnet = resnet50()
         self.model = torch.nn.Sequential(self.resnet.conv1, self.resnet.bn1,
