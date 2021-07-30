@@ -48,8 +48,7 @@ class SegmentationDataset(Dataset):
         return img, gt
 
     def __len__(self):
-        # return len(self.data)
-        return 100
+        return len(self.data)
 
     def visualize_image(self, x):
         plt.figure(figsize=(16, 16))
@@ -60,9 +59,3 @@ class SegmentationDataset(Dataset):
         plt.show()
         plt.close()
 
-
-# dataset = SegmentationDataset(mode='train')
-# dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
-# for batch in dataloader:
-#     print(batch[0])
-#     print(batch[1])

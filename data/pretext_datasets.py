@@ -95,7 +95,7 @@ class ContextRestorationDataPretext(Dataset):
         return original, corrupted
 
     def __len__(self):
-        return 50
+        return len(self.data)
 
 
 class ContrastiveLearningDataPretext(Dataset):
@@ -173,32 +173,3 @@ class JigsawDataPretext(Dataset):
         plt.show()
         plt.close()
 
-
-# dataset = ContextRestorationDataPretext(20)
-# dataloader_params = {"shuffle": True, "batch_size":64}
-# epochs = 10
-# dataloader = DataLoader(dataset, **dataloader_params)
-#
-# model = ContextRestoration()
-# for e in range(epochs):
-#     for batch in dataloader:
-#         corrupted = batch[0]
-#         original = batch[1]
-#         output = model(corrupted)
-
-# dataset = JigsawDataPretext()
-# permutations = dataset.__getitem__(56)
-# print()
-
-# dataset = ContrastiveLearningDataPretext()
-# dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
-# for batch in dataloader:
-#     # each batch contains N images, therefore the dimensions are [N, 3, 128, 128]
-#     pass
-
-# dataset = ContextRestorationDataPretext(15)
-# dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
-# for image in dataloader:
-#     for original, corrupted in zip(image[0], image[1]):
-#         dataset.visualize_image(original)
-#         dataset.visualize_image(corrupted)
