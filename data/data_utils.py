@@ -4,8 +4,10 @@ import torchvision
 import os
 from PIL import Image
 
+IMAGE_SIZE = 128
 
-def resize_images_unlabelled(folder_path, new_imgs_folder="./Resized/Unlabelled", img_size=64):
+
+def resize_images_unlabelled(folder_path, new_imgs_folder="./Resized/Unlabelled", img_size=IMAGE_SIZE):
     # if the folder already exists, then return. Otherwise, create a new folder
     # with the resized images
     if os.path.exists(new_imgs_folder):
@@ -32,7 +34,7 @@ def resize_images_unlabelled(folder_path, new_imgs_folder="./Resized/Unlabelled"
     print('Done')
 
 
-def resize_images_labelled(folder_path, new_imgs_folder="./Resized/Labelled", img_size=64):
+def resize_images_labelled(folder_path, new_imgs_folder="./Resized/Labelled", img_size=IMAGE_SIZE):
     if not os.path.exists(new_imgs_folder):
         os.mkdir(new_imgs_folder)
     if not os.path.exists(os.path.join(new_imgs_folder, 'Images')):

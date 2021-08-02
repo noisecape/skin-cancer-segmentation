@@ -40,7 +40,14 @@ class SimCLR(nn.Module):
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
             # output [N x 1 x 64 x 64]
-            nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1, bias=False),
+            # For images of 64x64
+            # nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1, bias=False),
+            # For images of 128x128
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            # output [N x 1 x 128 x 128]
+            nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=1, bias=False)
             # no sigmoid because the loss is BCEWithLogitLoss
             # which implicitly implements the Sigmoid function.
         )

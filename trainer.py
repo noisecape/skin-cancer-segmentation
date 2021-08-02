@@ -163,8 +163,9 @@ def get_eval_dataset():
 
 class Trainer(ABC):
 
-    def __init__(self, n_epochs, technique):
-        self.n_epochs = n_epochs
+    def __init__(self, n_epochs_pretext, n_epochs_segmentation, technique):
+        self.n_epochs_pretext = n_epochs_pretext
+        self.n_epochs_segmentation = n_epochs_segmentation
         self.technique = technique
 
     @abstractmethod
@@ -172,7 +173,7 @@ class Trainer(ABC):
         pass
 
     def train_segmentation(self, train_loader, val_loader, model, optimizer, criterion, epoch, loss_history, val_history):
-        loop = tqdm(range(epoch, self.n_epochs), total=self.n_epochs-epoch, leave=False)
+        loop = tqdm(range(epoch, self.n_epochs_segmentation), total=self.n_epochs_segmentation-epoch, leave=False)
         # load the model from pretext task
         for e in loop:
             model.train()
@@ -264,9 +265,10 @@ class Trainer(ABC):
 
 class JigsawTrainer(Trainer):
 
-    def __init__(self, n_epochs, P, N, batch_size):
-        super(JigsawTrainer, self).__init__(n_epochs, technique='jigsaw')
-        self.n_epochs = n_epochs
+    def __init__(self, n_epochs_pretext, n_epochs_segmentation, P, N, batch_size):
+        super(JigsawTrainer, self).__init__(n_epochs_pretext, n_epochs_segmentation, technique='jigsaw')
+        self.n_epochs_pretext = n_epochs_pretext
+        self.n_epochs_segmentation = n_epochs_segmentation
         self.P = P
         self.N = N
         self.batch_size = batch_size
@@ -379,7 +381,7 @@ class JigsawTrainer(Trainer):
 
     def train_pretext(self, train_loader, val_loader, model, optimizer, criterion, epoch, loss_history, val_history):
         permutation_set = self.get_permutation_set()
-        loop = tqdm(range(epoch, self.n_epochs), total=self.n_epochs-epoch, leave=False)
+        loop = tqdm(range(epoch, self.n_epochs_pretext), total=self.n_epochs_pretext-epoch, leave=False)
         for e in loop:
             model.train()
             # train loop
@@ -408,9 +410,10 @@ class JigsawTrainer(Trainer):
 
 class ContrastiveLearningTrainer(Trainer):
 
-    def __init__(self, n_epochs):
-        super(ContrastiveLearningTrainer, self).__init__(n_epochs, technique='contrastive')
-        self.n_epochs = n_epochs
+    def __init__(self, n_epochs_pretext, n_epochs_segmentation):
+        super(ContrastiveLearningTrainer, self).__init__(n_epochs_pretext, n_epochs_segmentation, technique='contrastive')
+        self.n_epochs_pretext = n_epochs_pretext
+        self.n_epochs_segmentation = n_epochs_segmentation
 
     def train_batch(self, train_loader, model, criterion, optimizer):
         running_loss = []
@@ -434,7 +437,7 @@ class ContrastiveLearningTrainer(Trainer):
         return torch.sum(torch.tensor(running_loss_eval)) / len(val_loader)
 
     def train_pretext(self, train_loader, val_loader, model, optimizer, criterion, epoch, loss_history, val_history):
-        loop = tqdm(range(epoch, self.n_epochs), total=self.n_epochs - epoch, leave=False)
+        loop = tqdm(range(epoch, self.n_epochs_pretext), total=self.n_epochs_pretext - epoch, leave=False)
         for e in loop:
             model.train()
             # train loop
@@ -462,9 +465,10 @@ class ContrastiveLearningTrainer(Trainer):
 
 class ContextRestorationTrainer(Trainer):
 
-    def __init__(self, n_epochs):
-        super(ContextRestorationTrainer, self).__init__(n_epochs, technique='restoration')
-        self.n_epochs = n_epochs
+    def __init__(self, n_epochs_pretext, n_epochs_segmentation):
+        super(ContextRestorationTrainer, self).__init__(n_epochs_pretext, n_epochs_segmentation, technique='restoration')
+        self.n_epochs_pretext = n_epochs_pretext
+        self.n_epochs_segmentation = n_epochs_segmentation
 
     def train_batch(self, train_loader, model, criterion, optimizer):
         running_loss = []
@@ -490,7 +494,7 @@ class ContextRestorationTrainer(Trainer):
         return batch_loss
 
     def train_pretext(self, train_loader, val_loader, model, optimizer, criterion, epoch, loss_history, val_history):
-        loop = tqdm(range(epoch, self.n_epochs), total=self.n_epochs - epoch, leave=False)
+        loop = tqdm(range(epoch, self.n_epochs_pretext), total=self.n_epochs_pretext - epoch, leave=False)
         for e in loop:
             model.train()
             # train
@@ -518,19 +522,19 @@ class ContextRestorationTrainer(Trainer):
 
 # Jigsaw
 # PRETEXT
-# trainer = JigsawTrainer(n_epochs=10, P=5, N=3, batch_size=32)
+# trainer = JigsawTrainer(n_epochs=400, P=30, N=3, batch_size=256)
 # data_pretext, phase = get_jigsaw_pretext(batch_size=32)
 # if phase == 'pretext':
 #     trainer.train_pretext(**data_pretext)
 # data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
 #                                             batch_size=32, technique='jigsaw')
-# FINETUNE
+# # FINETUNE
 # if phase == 'fine_tune':
 #     trainer.train_segmentation(**data_segmentation)
 # # otherwise the training is completed, load the model and evaluate
 # model = data_segmentation['model']
 # test_data = get_eval_dataset()
-# TEST
+# # TEST
 # accuracy = trainer.evaluate(test_data, model, p_threshold=0.6)
 
 # Context Restoration
@@ -547,6 +551,7 @@ class ContextRestorationTrainer(Trainer):
 # test_data = get_eval_dataset()
 # # TEST
 # accuracy = trainer.evaluate(test_data, model, p_threshold=0.6)
+
 # Contrastive Learning
 # PRETEXT
 # trainer = ContrastiveLearningTrainer(n_epochs=5)
