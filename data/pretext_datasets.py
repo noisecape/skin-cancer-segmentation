@@ -41,7 +41,7 @@ class ContextRestorationDataPretext(Dataset):
         corrupted_img = self.augment_image(img)
         return img, corrupted_img
 
-    def augment_image(self, x, patch_size=10):
+    def augment_image(self, x, patch_size=12):
         new_x = x.clone().detach()
         for _ in range(self.T):
             firstpatch_coordinates = (random.randint(0, x.shape[1]-patch_size),
@@ -96,6 +96,7 @@ class ContextRestorationDataPretext(Dataset):
 
     def __len__(self):
         return len(self.data)
+        # return 100
 
 
 class ContrastiveLearningDataPretext(Dataset):
@@ -137,6 +138,7 @@ class ContrastiveLearningDataPretext(Dataset):
 
     def __len__(self):
         return len(self.data)
+        # return 100
 
 
 class JigsawDataPretext(Dataset):
@@ -163,6 +165,7 @@ class JigsawDataPretext(Dataset):
 
     def __len__(self):
         return len(self.data)
+        # return 100
 
     def visualize_image(self, x):
         plt.figure(figsize=(16, 16))

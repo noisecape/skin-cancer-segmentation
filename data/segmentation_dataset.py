@@ -11,7 +11,7 @@ class SegmentationDataset(Dataset):
     imgs_path = 'data/Resized/Labelled/Images'
     gt_path = 'data/Resized/Labelled/Groundtruth'
 
-    def __init__(self, mode, split_perc=[0.7, 0.1, 0.2]):
+    def __init__(self, mode, split_perc=[0.2, 0.1, 0.7]):
         super(SegmentationDataset, self).__init__()
         self.mode = mode
         self.imgs_labels = sorted(os.listdir(os.path.join(os.curdir, SegmentationDataset.imgs_path)))
@@ -48,7 +48,8 @@ class SegmentationDataset(Dataset):
         return img, gt
 
     def __len__(self):
-        return len(self.data)
+        # return len(self.data)
+        return 100
 
     def visualize_image(self, x):
         plt.figure(figsize=(16, 16))

@@ -3,7 +3,7 @@ import torch
 from data.pretext_datasets import ContextRestorationDataPretext, ContrastiveLearningDataPretext, JigsawDataPretext
 from torch.utils.data import DataLoader
 from data.segmentation_dataset import SegmentationDataset
-from model.context_restoration import ContextRestoration
+from model.context_restoration import UNET
 from model.contrastive_learning import SimCLR
 from model.jigsaw import JiGen
 from model.utils.criterions import ContrastiveLoss
@@ -79,7 +79,8 @@ def get_contrastive_learning_pretext(batch_size):
 
 
 def get_context_restoration_pretext(batch_size):
-    model = ContextRestoration(in_channel=3).to(DEVICE)
+    # model = ContextRestoration(in_channel=3).to(DEVICE)
+    model = UNET(in_channels=3).to(DEVICE)
     train_data = ContextRestorationDataPretext(mode='train')
     val_data = ContextRestorationDataPretext(mode='val')
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}
@@ -181,7 +182,7 @@ class Trainer(ABC):
             running_loss_val = []
             # train
             for idx, (imgs, gt_imgs) in enumerate(train_loader):
-                prediction = model(imgs.to(DEVICE))
+                prediction = model(imgs.to(DEVICE), pretext=False)
                 loss = criterion(prediction, gt_imgs.to(DEVICE))
                 running_loss_train.append(loss)
                 optimizer.zero_grad()
@@ -190,16 +191,17 @@ class Trainer(ABC):
             # print statistics
             batch_loss = torch.sum(torch.tensor(running_loss_train))/len(train_loader)
             loss_history.append(batch_loss.item())
-
-            # validation
-            for idx, (imgs, gt_imgs) in enumerate(val_loader):
-                prediction = model(imgs.to(DEVICE))
-                loss = criterion(prediction, gt_imgs.to(DEVICE))
-                running_loss_val.append(loss)
-            batch_loss = torch.sum(torch.tensor(running_loss_val))/len(val_loader)
-            val_history.append(batch_loss.item())
-            loop.set_description('Epoch processed')
-            loop.set_postfix(train_loss=loss_history[-1], val_loss=val_history[-1])
+            model.eval()
+            with torch.no_grad():
+                # validation
+                for idx, (imgs, gt_imgs) in enumerate(val_loader):
+                    prediction = model(imgs.to(DEVICE), pretext=False)
+                    loss = criterion(prediction, gt_imgs.to(DEVICE))
+                    running_loss_val.append(loss)
+                batch_loss = torch.sum(torch.tensor(running_loss_val))/len(val_loader)
+                val_history.append(batch_loss.item())
+                loop.set_description('Epoch processed')
+                loop.set_postfix(train_loss=loss_history[-1], val_loss=val_history[-1])
             # save checkpoint
             checkpoint = {
                 'epoch': e,
@@ -225,7 +227,7 @@ class Trainer(ABC):
                 img = batch[0].to(DEVICE)
                 # gt = batch[1].squeeze(1).view(-1).to(DEVICE)
                 gt = batch[1].to(DEVICE)
-                output = torch.sigmoid(model(img)).squeeze(0)
+                output = torch.sigmoid(model(img, pretext=False)).squeeze(0)
                 prediction = (output > p_threshold).float()
                 gt = gt.squeeze(0)
                 if random.random() > 0.5 and len(prediction_samples) < 10:
@@ -291,8 +293,8 @@ class JigsawTrainer(Trainer):
         return True
 
     def get_data(self, img_labels, permutations):
-        imgs = torch.ones((self.batch_size, self.P, 3, 128, 128))
-        labels = torch.ones((self.batch_size, self.P), dtype=int)
+        imgs = torch.ones((self.batch_size, self.P, 3, 128, 128)).to(DEVICE)
+        labels = torch.ones((self.batch_size, self.P), dtype=int).to(DEVICE)
         for idx, img_label in enumerate(img_labels):
             for _ in range(len(permutations)):
                 imgs[idx], labels[idx] = self.permute_img(img_label, permutations)
@@ -306,12 +308,12 @@ class JigsawTrainer(Trainer):
             tiles[i] = self.get_tile(img, i)
         img_data = [tiles[chosen_p[t]] for t in range(self.N**2)]
         tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
-                                                               torchvision.transforms.Normalize((.5, .5, .5,),
-                                                                                                (.5, .5, .5))])
+                                                           torchvision.transforms.Normalize((.5, .5, .5,),
+                                                                                            (.5, .5, .5)).to(DEVICE)])
         img_data = [tensor_converter(img) for img in img_data]
-        img_data = torch.stack(img_data, 0)
-        img = torchvision.utils.make_grid(img_data, self.N, padding=0)
-        upsampler = torchvision.transforms.Resize((128, 128))
+        img_data = torch.stack(img_data, 0).to(DEVICE)
+        img = torchvision.utils.make_grid(img_data, self.N, padding=0).to(DEVICE)
+        upsampler = torchvision.transforms.Resize((128, 128)).to(DEVICE)
         img = upsampler(img)
         # self.visualize_image(img)
         return img
@@ -479,18 +481,17 @@ class ContextRestorationTrainer(Trainer):
             loss.backward()
             optimizer.step()
             running_loss.append(loss.item())
-            torch.cuda.empty_cache()
         batch_loss = torch.sum(torch.tensor(running_loss)) / len(train_loader)
         return batch_loss
 
     def validate(self, val_loader, model, criterion):
         running_loss_eval = []
-        for idx, (corrupted, original) in enumerate(val_loader):
-            restored = model(corrupted.to(DEVICE), pretext=True)
-            loss = criterion(restored.to(DEVICE), original.to(DEVICE))
-            running_loss_eval.append(loss.item())
-            torch.cuda.empty_cache()
-        batch_loss = torch.sum(torch.tensor(running_loss_eval)) / len(val_loader)
+        with torch.no_grad():
+            for idx, (corrupted, original) in enumerate(val_loader):
+                restored = model(corrupted.to(DEVICE), pretext=True)
+                loss = criterion(restored.to(DEVICE), original.to(DEVICE))
+                running_loss_eval.append(loss.item())
+            batch_loss = torch.sum(torch.tensor(running_loss_eval)) / len(val_loader)
         return batch_loss
 
     def train_pretext(self, train_loader, val_loader, model, optimizer, criterion, epoch, loss_history, val_history):
@@ -522,12 +523,12 @@ class ContextRestorationTrainer(Trainer):
 
 # Jigsaw
 # PRETEXT
-# trainer = JigsawTrainer(n_epochs=400, P=30, N=3, batch_size=256)
-# data_pretext, phase = get_jigsaw_pretext(batch_size=32)
+# trainer = JigsawTrainer(n_epochs_pretext=5, n_epochs_segmentation=100, P=5, N=3, batch_size=64)
+# data_pretext, phase = get_jigsaw_pretext(batch_size=64)
 # if phase == 'pretext':
 #     trainer.train_pretext(**data_pretext)
 # data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
-#                                             batch_size=32, technique='jigsaw')
+#                                             batch_size=64, technique='jigsaw')
 # # FINETUNE
 # if phase == 'fine_tune':
 #     trainer.train_segmentation(**data_segmentation)
@@ -538,7 +539,7 @@ class ContextRestorationTrainer(Trainer):
 # accuracy = trainer.evaluate(test_data, model, p_threshold=0.6)
 
 # Context Restoration
-# trainer = ContextRestorationTrainer(n_epochs=5)
+# trainer = ContextRestorationTrainer(n_epochs_pretext=5, n_epochs_segmentation=10)
 # data_pretext, phase = get_context_restoration_pretext(batch_size=32)
 # if phase == 'pretext':
 #     trainer.train_pretext(**data_pretext)
@@ -554,12 +555,12 @@ class ContextRestorationTrainer(Trainer):
 
 # Contrastive Learning
 # PRETEXT
-# trainer = ContrastiveLearningTrainer(n_epochs=5)
-# data_pretext, phase = get_contrastive_learning_pretext(batch_size=32)
+# trainer = ContrastiveLearningTrainer(n_epochs_pretext=5, n_epochs_segmentation=10)
+# data_pretext, phase = get_contrastive_learning_pretext(batch_size=64)
 # if phase == 'pretext':
 #     trainer.train_pretext(**data_pretext)
 # data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
-#                                             batch_size=32, technique='contrastive_learning')
+#                                             batch_size=64, technique='contrastive_learning')
 # # FINETUNE
 # if phase == 'fine_tune':
 #     trainer.train_segmentation(**data_segmentation)
