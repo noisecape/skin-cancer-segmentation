@@ -26,8 +26,8 @@ saved_files_path = os.path.join(os.curdir, 'saved_models')
 
 def get_jigsaw_pretext(P, batch_size, split=[0.8, 0.2]):
     model = JiGen(P=P).to(DEVICE)
-    train_data = JigsawDataPretext(mode='train')
-    val_data = JigsawDataPretext(mode='val')
+    train_data = JigsawDataPretext(batch_size=batch_size, P=P, mode='train')
+    val_data = JigsawDataPretext(batch_size=batch_size, P=P, mode='val')
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
@@ -136,6 +136,7 @@ def get_custom_approach_pretext(batch_size):
             'loss_history': loss_history, 'val_history': val_history}
     return data, phase
 
+
 def get_segmentation(model, optimizer, batch_size, technique):
     train_data = SegmentationDataset(mode='train')
     val_data = SegmentationDataset(mode='val')
@@ -192,6 +193,7 @@ def get_segmentation(model, optimizer, batch_size, technique):
             'loss_history': loss_history, 'val_history': val_history}
     return data, phase
 
+
 def get_eval_dataset():
     dataset = SegmentationDataset('test')
     dataloader_params = {'shuffle': True, 'batch_size': 1}
@@ -208,6 +210,14 @@ class Trainer(ABC):
 
     @abstractmethod
     def train_pretext(self, train_loader, val_loader, model, optimizer, criterion, epoch, loss_history, val_history):
+        pass
+
+    @abstractmethod
+    def train_batch(self, train_loader, permutation_set, model, criterion, optimizer):
+        pass
+
+    @abstractmethod
+    def validate(self, val_loader, permutation_set, model, criterion):
         pass
 
     def train_segmentation(self, train_loader, val_loader, model, optimizer, criterion, epoch, loss_history, val_history):
@@ -312,86 +322,13 @@ class JigsawTrainer(Trainer):
         self.N = N
         self.batch_size = batch_size
 
-    def get_permutation_set(self):
-        indices = [0, 1, 2, 3, 4, 5, 6, 7, 8]
-        permutations = []
-        permutations.append(indices)
-        while len(permutations) != self.P:
-            candidate = np.random.permutation(indices)
-            if self.validate_permutation(permutations, candidate, min_dist=4):
-                permutations.append(candidate.tolist())
-        return permutations
-
-    def validate_permutation(self, permutations, candidate, min_dist=4):
-        for p in permutations:
-            dist = sum(int(char1 != char2) for char1, char2 in zip(p, candidate))
-            if dist < min_dist:
-                return False
-        return True
-
-    def get_data(self, img_labels, permutations):
-        imgs = torch.ones((self.batch_size, self.P, 3, 128, 128)).to(DEVICE)
-        labels = torch.ones((self.batch_size, self.P), dtype=int).to(DEVICE)
-        for idx, img_label in enumerate(img_labels):
-            for _ in range(len(permutations)):
-                imgs[idx], labels[idx] = self.permute_img(img_label, permutations)
-        return imgs, labels
-
-    def shuffle_tiles(self, img, chosen_p):
-        tiles = [None] * self.N**2
-        # chosen_permutations = []
-        # permuted_images = []
-        for i in range(self.N**2):
-            tiles[i] = self.get_tile(img, i)
-        img_data = [tiles[chosen_p[t]] for t in range(self.N**2)]
-        tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
-                                                           torchvision.transforms.Normalize((.5, .5, .5,),
-                                                                                            (.5, .5, .5)).to(DEVICE)])
-        img_data = [tensor_converter(img) for img in img_data]
-        img_data = torch.stack(img_data, 0).to(DEVICE)
-        img = torchvision.utils.make_grid(img_data, self.N, padding=0).to(DEVICE)
-        upsampler = torchvision.transforms.Resize((128, 128)).to(DEVICE)
-        img = upsampler(img)
-        # self.visualize_image(img)
-        return img
-
-    def get_tile(self, img, i):
-        w = int(img.size[0] / self.N)
-        y = int(i/self.N)
-        x = i % self.N
-        tile = img.crop([x * w, y * w, (x + 1) * w, (y + 1) * w])
-        return tile
-
-    def permute_img(self, img_label, permutations_set):
-        # retrieve the image
-        # apply a 3x3 grid
-        # calculate 100 permutations using the Hamming distance
-        # append each permutation into a list and return it
-        random_choice = random.randint(0, len(permutations_set)-1)
-        chosen_p = permutations_set[random_choice]
-        dir_path = os.path.join(os.curdir, JigsawDataPretext.unlabelled_path)
-        img_path = os.path.join(dir_path, img_label)
-        img = Image.open(img_path)
-        permuted_img = self.shuffle_tiles(img, chosen_p)
-        return permuted_img, random_choice
-
-    def visualize_image(self, x):
-        plt.figure(figsize=(16, 16))
-        x = x.permute(1, 2, 0)
-        x = (x * 0.5) + 0.5
-        plt.imshow(x)
-        plt.axis('off')
-        plt.show()
-        plt.close()
-
-    def train_batch(self, train_loader, permutation_set, model, criterion, optimizer):
+    def train_batch(self, train_loader, model, criterion, optimizer):
         running_loss_train = []
         for idx, batch in enumerate(train_loader):
-            img_batch, labels = self.get_data(batch, permutation_set)
-            img_batch = img_batch.permute((1, 0, 2, 3, 4)).to(DEVICE)
-            labels = labels.permute((1, 0)).to(DEVICE)
+            images = batch[0].permute((1, 0, 2, 3, 4)).to(DEVICE)
+            labels = batch[1].permute((1, 0)).to(DEVICE)
             loss_permutations = []
-            for n, (imgs, label) in enumerate(zip(img_batch, labels)):
+            for n, (imgs, label) in enumerate(zip(images, labels)):
                 output = model(imgs, pretext=True)
                 loss = criterion(output, label)
                 loss_permutations.append(loss.item())
@@ -403,32 +340,32 @@ class JigsawTrainer(Trainer):
         batch_loss = torch.sum(torch.tensor(running_loss_train)) / len(train_loader)
         return batch_loss
 
-    def validate(self, val_loader, permutation_set, model, criterion):
+    def validate(self, val_loader, model, criterion):
         running_loss_eval = []
-        for idx, batch in enumerate(val_loader):
-            img_batch, labels = self.get_data(batch, permutation_set)
-            img_batch = img_batch.permute((1, 0, 2, 3, 4)).to(DEVICE)
-            labels = labels.permute((1, 0)).to(DEVICE)
-            loss_permutations = []
-            for n, (imgs, label) in enumerate(zip(img_batch, labels)):
-                output = model(imgs, pretext=True)
-                loss = criterion(output, label)
-                loss_permutations.append(loss.item())
-            running_loss_eval.append(torch.sum(torch.tensor(loss_permutations)) / self.P)
-        batch_loss = torch.sum(torch.tensor(running_loss_eval)) / len(val_loader)
+        with torch.no_grad():
+            for idx, batch in enumerate(val_loader):
+                images = batch[0].permute((1, 0, 2, 3, 4)).to(DEVICE)
+                labels = batch[1].permute((1, 0)).to(DEVICE)
+                loss_permutations = []
+                for n, (imgs, label) in enumerate(zip(images, labels)):
+                    output = model(imgs, pretext=True)
+                    loss = criterion(output, label)
+                    loss_permutations.append(loss.item())
+                running_loss_eval.append(torch.sum(torch.tensor(loss_permutations)) / self.P)
+            # update train statistics
+            batch_loss = torch.sum(torch.tensor(running_loss_eval)) / len(val_loader)
         return batch_loss
 
     def train_pretext(self, train_loader, val_loader, model, optimizer, criterion, epoch, loss_history, val_history):
-        permutation_set = self.get_permutation_set()
         loop = tqdm(range(epoch, self.n_epochs_pretext), total=self.n_epochs_pretext-epoch, leave=False)
         for e in loop:
             model.train()
             # train loop
-            batch_loss = self.train_batch(train_loader, permutation_set, model, criterion, optimizer)
+            batch_loss = self.train_batch(train_loader, model, criterion, optimizer)
             loss_history.append(batch_loss.item())
             # val loop
             model.eval()
-            val_loss = self.validate(val_loader, permutation_set, model, criterion)
+            val_loss = self.validate(val_loader, model, criterion)
             val_history.append(val_loss.item())
             # print statistics
             loop.set_description(f'Epoch pretext processed')
@@ -469,10 +406,11 @@ class ContrastiveLearningTrainer(Trainer):
 
     def validate(self, val_loader, model, criterion):
         running_loss_eval = []
-        for idx, x in enumerate(val_loader):
-            processed_1, processed_2 = model(x.to(DEVICE), pretext=True)
-            loss = criterion(processed_1.to(DEVICE), processed_2.to(DEVICE))
-            running_loss_eval.append(loss)
+        with torch.no_grad():
+            for idx, x in enumerate(val_loader):
+                processed_1, processed_2 = model(x.to(DEVICE), pretext=True)
+                loss = criterion(processed_1.to(DEVICE), processed_2.to(DEVICE))
+                running_loss_eval.append(loss)
         return torch.sum(torch.tensor(running_loss_eval)) / len(val_loader)
 
     def train_pretext(self, train_loader, val_loader, model, optimizer, criterion, epoch, loss_history, val_history):
@@ -511,7 +449,9 @@ class ContextRestorationTrainer(Trainer):
 
     def train_batch(self, train_loader, model, criterion, optimizer):
         running_loss = []
-        for idx, (corrupted, original) in enumerate(train_loader):
+        for idx, batch in enumerate(train_loader):
+            original = batch[0].to(DEVICE)
+            corrupted = batch[1].to(DEVICE)
             restored = model(corrupted.to(DEVICE), pretext=True)
             loss = criterion(restored.to(DEVICE), original.to(DEVICE))
             optimizer.zero_grad()
@@ -524,7 +464,9 @@ class ContextRestorationTrainer(Trainer):
     def validate(self, val_loader, model, criterion):
         running_loss_eval = []
         with torch.no_grad():
-            for idx, (corrupted, original) in enumerate(val_loader):
+            for idx, batch in enumerate(val_loader):
+                original = batch[0].to(DEVICE)
+                corrupted = batch[1].to(DEVICE)
                 restored = model(corrupted.to(DEVICE), pretext=True)
                 loss = criterion(restored.to(DEVICE), original.to(DEVICE))
                 running_loss_eval.append(loss.item())
@@ -620,20 +562,20 @@ class CustomApproachTrainer(Trainer):
 
 # Jigsaw
 # PRETEXT
-# trainer = JigsawTrainer(n_epochs_pretext=5, n_epochs_segmentation=100, P=5, N=3, batch_size=64)
-# data_pretext, phase = get_jigsaw_pretext(P=5, batch_size=64)
-# if phase == 'pretext':
-#     trainer.train_pretext(**data_pretext)
-# data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
-#                                             batch_size=64, technique='jigsaw')
-# # FINETUNE
-# if phase == 'fine_tune':
-#     trainer.train_segmentation(**data_segmentation)
-# # otherwise the training is completed, load the model and evaluate
-# model = data_segmentation['model']
-# test_data = get_eval_dataset()
-# # TEST
-# accuracy = trainer.evaluate(test_data, model, p_threshold=0.6)
+trainer = JigsawTrainer(n_epochs_pretext=5, n_epochs_segmentation=100, P=30, N=3, batch_size=64)
+data_pretext, phase = get_jigsaw_pretext(P=30, batch_size=64)
+if phase == 'pretext':
+    trainer.train_pretext(**data_pretext)
+data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
+                                            batch_size=64, technique='jigsaw')
+# FINETUNE
+if phase == 'fine_tune':
+    trainer.train_segmentation(**data_segmentation)
+# otherwise the training is completed, load the model and evaluate
+model = data_segmentation['model']
+test_data = get_eval_dataset()
+# TEST
+accuracy = trainer.evaluate(test_data, model, p_threshold=0.6)
 
 # Context Restoration
 # trainer = ContextRestorationTrainer(n_epochs_pretext=5, n_epochs_segmentation=10)
@@ -670,17 +612,17 @@ class CustomApproachTrainer(Trainer):
 
 # Custom Approach
 # PRETEXT
-trainer = CustomApproachTrainer(n_epochs_pretext=5, n_epochs_segmentation=10)
-data_pretext, phase = get_custom_approach_pretext(batch_size=64)
-if phase == 'pretext':
-    trainer.train_pretext(**data_pretext)
-data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
-                                            batch_size=64, technique='custom_approach')
-# FINETUNE
-if phase == 'fine-tune':
-    trainer.train_segmentation(**data_segmentation)
-model = data_segmentation['model']
-test_data = get_eval_dataset()
-# TEST
-accuracy = trainer.evaluate(test_data, model, p_threshold=0.6)
-print(accuracy)
+# trainer = CustomApproachTrainer(n_epochs_pretext=5, n_epochs_segmentation=10)
+# data_pretext, phase = get_custom_approach_pretext(batch_size=64)
+# if phase == 'pretext':
+#     trainer.train_pretext(**data_pretext)
+# data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
+#                                             batch_size=64, technique='custom_approach')
+# # FINETUNE
+# if phase == 'fine-tune':
+#     trainer.train_segmentation(**data_segmentation)
+# model = data_segmentation['model']
+# test_data = get_eval_dataset()
+# # TEST
+# accuracy = trainer.evaluate(test_data, model, p_threshold=0.6)
+# print(accuracy)
