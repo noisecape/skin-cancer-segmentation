@@ -176,3 +176,70 @@ class JigsawDataPretext(Dataset):
         plt.show()
         plt.close()
 
+
+class CustomDataPretext(Dataset):
+
+    unlabelled_path = 'data/Resized/Unlabelled'
+
+    def __init__(self, mode='train', split=[0.8, 0.2]):
+        super(CustomDataPretext, self).__init__()
+        self.imgs_label = os.listdir(os.path.join(os.curdir, CustomDataPretext.unlabelled_path))
+        self.mode = mode
+        self.split = split
+        self.data = self.get_data()
+        self.augmentations = {0: torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
+                                                                 torchvision.transforms.Normalize((.5, .5, .5),
+                                                                                                  (.5, .5, .5))]),
+                              1: torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
+                                                                 torchvision.transforms.Normalize((.5, .5, .5),
+                                                                                                  (.5, .5, .5)),
+                                                                 torchvision.transforms.RandomResizedCrop((128, 128))]),
+                              2: torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
+                                                                 torchvision.transforms.Normalize((.5, .5, .5),
+                                                                                                  (.5, .5, .5)),
+                                                                 torchvision.transforms.GaussianBlur(5)]),
+                              3: torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
+                                                                 torchvision.transforms.Normalize((.5, .5, .5),
+                                                                                                  (.5, .5, .5)),
+                                                                 torchvision.transforms.ColorJitter(0.8, 0.8, 0.8, 0.2)]
+                                                                )}
+
+    def process_batch(self, idx):
+        # image path
+        image_label = self.data[idx]
+        abs_path = os.path.join(os.curdir, CustomDataPretext.unlabelled_path)
+        img_path = os.path.join(abs_path, image_label)
+        image = Image.open(os.path.join(os.curdir, img_path))
+        augmentation_idx = random.randint(0, len(self.augmentations)-1)
+        image = self.augmentations[augmentation_idx](image)
+        return image, augmentation_idx
+
+    def __getitem__(self, idx):
+        return self.process_batch(idx)
+
+    def __len__(self):
+        return len(self.data)
+        # return 100
+
+    def get_data(self):
+        if self.mode == 'train':
+            return self.imgs_label[:int(len(self.imgs_label) * self.split[0])]
+        elif self.mode == 'val':
+            return self.imgs_label[int(len(self.imgs_label) * self.split[0]):]
+
+    def visualize_image(self, x):
+        plt.figure(figsize=(16, 16))
+        x = x.permute(1, 2, 0)
+        x = (x * 0.5) + 0.5
+        plt.imshow(x)
+        plt.axis('off')
+        plt.show()
+        plt.close()
+
+
+# dataset = CustomDataPretext()
+# dataloader = DataLoader(dataset, batch_size=64)
+# for batch in dataloader:
+#     imgs = batch[0]
+#     labels = batch[1]
+#     print()
