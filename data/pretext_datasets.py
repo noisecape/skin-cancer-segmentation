@@ -141,14 +141,129 @@ class ContrastiveLearningDataPretext(Dataset):
         # return 100
 
 
+class JiGenData(Dataset):
+
+    imgs_path = 'data/Resized/Labelled/Images'
+    gt_path = 'data/Resized/Labelled/Groundtruth'
+
+    def __init__(self, P, N=3, split=[0.2, 0.1, 0.7], mode='train'):
+        super(JiGenData, self).__init__()
+        self.P = P
+        self.N = N
+        self.mode = mode
+        self.imgs_labels = sorted(os.listdir(os.path.join(os.curdir, JiGenData.imgs_path)))
+        self.gt_labels = sorted(os.listdir(os.path.join(os.curdir, JiGenData.gt_path)))
+        if mode == 'train':
+            start_idx = 0
+            end_idx = int(len(self.imgs_labels) * split[0])
+            self.data = self.get_data(start_idx, end_idx)
+        elif mode == 'val':
+            start_idx = int(len(self.imgs_labels) * split[0])
+            end_idx = start_idx + int(len(self.imgs_labels) * split[1])
+            self.data = self.get_data(start_idx, end_idx)
+        elif mode == 'test':
+            start_idx = int(len(self.imgs_labels) * (split[0] + split[1]))
+            end_idx = len(self.imgs_labels)
+            self.data = self.get_data(start_idx, end_idx)
+
+    def get_data(self, start_idx, end_idx):
+        data = [(img, gt) for img, gt in zip(self.imgs_labels[start_idx:end_idx], self.gt_labels[start_idx:end_idx])]
+        return data
+
+
+    def get_permutation_set(self):
+        indices = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+        permutations = [indices]
+        while len(permutations) != self.P:
+            candidate = np.random.permutation(indices)
+            if self.validate_permutation(permutations, candidate, min_dist=4):
+                permutations.append(candidate.tolist())
+        return permutations
+
+    def validate_permutation(self, permutations, candidate, min_dist=4):
+        for p in permutations:
+            dist = sum(int(char1 != char2) for char1, char2 in zip(p, candidate))
+            if dist < min_dist:
+                return False
+        return True
+
+    def get_segmentation_batch(self, idx):
+        img_path = os.path.join(JiGenData.imgs_path, self.imgs_labels[idx])
+        gt_path = os.path.join(JiGenData.gt_path, self.gt_labels[idx])
+        img = Image.open(os.path.join(os.curdir, img_path)).convert("RGB")
+        gt = np.array(Image.open(os.path.join(os.curdir, gt_path)).convert('L'), dtype=np.float32)
+        gt[gt > 0] = 1.0
+        tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
+                                                           torchvision.transforms.Normalize((0.5, 0.5, 0.5),
+                                                                                            (0.5, 0.5, 0.5))])
+        gt_tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
+        img = tensor_converter(img)
+        gt = gt_tensor_converter(gt)
+        return img, gt
+
+    def build_data(self, img_label, permutations):
+        imgs = torch.ones((self.P, 3, 128, 128))
+        labels = torch.ones(self.P, dtype=int)
+        for idx in range(len(permutations)):
+            imgs[idx], labels[idx] = self.permute_img(img_label, permutations)
+        return imgs, labels
+
+    def permute_img(self, img_label, permutations_set):
+        # retrieve the image
+        # apply a 3x3 grid
+        # calculate 100 permutations using the Hamming distance
+        # append each permutation into a list and return it
+        random_choice = random.randint(0, len(permutations_set)-1)
+        chosen_p = permutations_set[random_choice]
+        dir_path = os.path.join(os.curdir, JiGenData.imgs_path)
+        img_path = os.path.join(dir_path, img_label)
+        img = Image.open(img_path)
+        permuted_img = self.shuffle_tiles(img, chosen_p)
+        return permuted_img, random_choice
+
+    def shuffle_tiles(self, img, chosen_p):
+        tiles = [None] * self.N**2
+        # chosen_permutations = []
+        # permuted_images = []
+        for i in range(self.N**2):
+            tiles[i] = self.get_tile(img, i)
+        img_data = [tiles[chosen_p[t]] for t in range(self.N**2)]
+        tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
+                                                           torchvision.transforms.Normalize((.5, .5, .5,),
+                                                                                            (.5, .5, .5))])
+        img_data = [tensor_converter(img) for img in img_data]
+        img_data = torch.stack(img_data, 0)
+        img = torchvision.utils.make_grid(img_data, self.N, padding=0)
+        upsampler = torchvision.transforms.Resize((128, 128))
+        img = upsampler(img)
+        # self.visualize_image(img)
+        return img
+
+    def get_tile(self, img, i):
+        w = int(img.size[0] / self.N)
+        y = int(i/self.N)
+        x = i % self.N
+        tile = img.crop([x * w, y * w, (x + 1) * w, (y + 1) * w])
+        return tile
+
+    def __getitem__(self, idx):
+        # each element in a batch is as follows [P_shuffled_imgs, idx_permutations, N_original_imgs, N_gt_imgs]
+        seg_img, gt_img = self.get_segmentation_batch(idx)
+        permutation_set = self.get_permutation_set()
+        shuffled_imgs, perm_idx = self.build_data(self.imgs_labels[idx], permutation_set)
+        return shuffled_imgs, perm_idx, seg_img, gt_img
+
+    def __len__(self):
+        # return 100
+        return len(self.data)
+
 class JigsawDataPretext(Dataset):
 
     unlabelled_path = 'data/Resized/Unlabelled'
 
-    def __init__(self, batch_size, P, mode='train', split=[0.8, 0.2], N=3):
+    def __init__(self, P, mode='train', split=[0.8, 0.2], N=3):
         super(JigsawDataPretext, self).__init__()
         self.imgs_label = os.listdir(os.path.join(os.curdir, JigsawDataPretext.unlabelled_path))
-        self.batch_size = batch_size
         self.P = P
         self.mode = mode
         self.split = split
@@ -303,6 +418,12 @@ class CustomDataPretext(Dataset):
         plt.show()
         plt.close()
 
+
+# dataset = JigsawData(P=10)
+# dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
+# for batch in dataloader:
+#     pretext_imgs, labels, seg_imgs, gt_imgs = batch
+#     print()
 
 # dataset = CustomDataPretext()
 # dataloader = DataLoader(dataset, batch_size=64)

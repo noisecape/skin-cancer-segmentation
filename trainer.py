@@ -1,7 +1,7 @@
 import torch.nn
 import torch
 from data.pretext_datasets import ContextRestorationDataPretext, ContrastiveLearningDataPretext
-from data.pretext_datasets import JigsawDataPretext, CustomDataPretext
+from data.pretext_datasets import JigsawDataPretext, CustomDataPretext, JiGenData
 from torch.utils.data import DataLoader
 from data.segmentation_dataset import SegmentationDataset
 from model.context_restoration import UNET
@@ -24,10 +24,37 @@ DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 saved_files_path = os.path.join(os.curdir, 'saved_models')
 
 
+def get_jigen_data(P, batch_size):
+    model = JiGen(P=P).to(DEVICE)
+    train_data = JiGenData(P=P, mode='train')
+    val_data = JiGenData(P=P, mode='val')
+    dataloader_params = {'shuffle': True, 'batch_size': batch_size}
+    dataloader_train = DataLoader(train_data, **dataloader_params)
+    dataloader_val = DataLoader(val_data, **dataloader_params)
+    criterion_pretext = torch.nn.CrossEntropyLoss()
+    criterion_segmentation = torch.nn.BCEWithLogitsLoss()
+    optimizer = model.optimizer
+    epoch = 0
+    loss_history = []
+    val_history = []
+    phase = 'train'
+    if os.path.exists(os.path.join(saved_files_path, 'jigen_model.pth')):
+        model_path = os.path.join(saved_files_path, 'jigen_model.pth')
+        model = load_model(model, path=model_path)
+        phase = 'test'
+    elif os.path.exists(os.path.join(saved_files_path, 'jigen_checkpoint.pth')):
+        model_path = os.path.join(saved_files_path, 'jigen_checkpoint.pth')
+        epoch, model, optimizer, loss_history, val_history = load_checkpoint(model, optimizer, model_path)
+    data = {'model': model, 'optimizer': optimizer,
+            'train_loader': dataloader_train, 'val_loader': dataloader_val,
+            'criterion_seg': criterion_segmentation, 'criterion_ptx': criterion_pretext,
+            'epoch': epoch, 'loss_history': loss_history, 'val_history': val_history}
+    return data, phase
+
 def get_jigsaw_pretext(P, batch_size, split=[0.8, 0.2]):
     model = JiGen(P=P).to(DEVICE)
-    train_data = JigsawDataPretext(batch_size=batch_size, P=P, mode='train')
-    val_data = JigsawDataPretext(batch_size=batch_size, P=P, mode='val')
+    train_data = JigsawDataPretext(P=P, mode='train')
+    val_data = JigsawDataPretext(P=P, mode='val')
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
@@ -312,10 +339,10 @@ class Trainer(ABC):
             plt.close()
 
 
-class JigsawTrainer(Trainer):
+class JigsawTrainerPretext(Trainer):
 
     def __init__(self, n_epochs_pretext, n_epochs_segmentation, P, N, batch_size):
-        super(JigsawTrainer, self).__init__(n_epochs_pretext, n_epochs_segmentation, technique='jigsaw')
+        super(JigsawTrainerPretext, self).__init__(n_epochs_pretext, n_epochs_segmentation, technique='jigsaw')
         self.n_epochs_pretext = n_epochs_pretext
         self.n_epochs_segmentation = n_epochs_segmentation
         self.P = P
@@ -382,6 +409,142 @@ class JigsawTrainer(Trainer):
                                                                   'saved_models/jigsaw_checkpoint_pretext.pth'))
         # save the model
         utility.save_model(model, path=os.path.join(os.curdir, 'saved_models/jigsaw_model_pretext.pth'))
+
+class JigsawTrainer:
+
+    def __init__(self, n_epochs, P, N, batch_size, technique='jigsaw'):
+        self.P = P
+        self.N = N
+        self.batch_size = batch_size
+        self.n_epochs = n_epochs
+        self.technique = technique
+
+    def train(self, model, train_loader, val_loader, optimizer, criterion_ptx, criterion_seg, epoch, loss_history, val_history):
+        loop = tqdm(range(0, self.n_epochs), total=self.n_epochs - epoch, leave=False)
+        for e in loop:
+            batch_loss = self.train_batch(model, train_loader, criterion_seg, criterion_ptx, optimizer)
+            loss_history.append(batch_loss.item())
+            val_loss = self.validate(model, val_loader, criterion_seg, criterion_ptx)
+            val_history.append(val_loss.item())
+            loop.set_description(f'Epoch')
+            loop.set_postfix(train_loss=loss_history[-1], val_loss=val_history[-1])
+            # checkpoint
+            checkpoint = {
+                'epoch': e,
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'loss_history': loss_history,
+                'val_history': val_history
+            }
+            utility.save_checkpoint(checkpoint, path=os.path.join(os.curdir,
+                                                                  'saved_models/jigen_checkpoint.pth'))
+        # save the model
+        utility.save_model(model, path=os.path.join(os.curdir, 'saved_models/jigen_model.pth'))
+
+    def train_batch(self, model, data_loader, criterion_seg, criterion_ptx, optimizer):
+        model.train()
+        batch_loss = []
+        for ptx_img, labels, imgs_seg, segs_gt in data_loader:
+            permutation_loss = 0
+            ptx_img = ptx_img.permute((1, 0, 2, 3, 4)).to(DEVICE)
+            labels = labels.permute((1, 0)).to(DEVICE)
+            imgs_seg = imgs_seg.to(DEVICE)
+            segs_gt = segs_gt.to(DEVICE)
+            out_seg = model(imgs_seg, pretext=False)
+            loss_seg = criterion_seg(out_seg, segs_gt)
+            for n, (imgs, label) in enumerate(zip(ptx_img, labels)):
+                out_ptx = model(imgs, pretext=True)
+                pretext_loss = criterion_ptx(out_ptx, label)
+                permutation_loss += pretext_loss
+            permutation_loss = torch.sum(permutation_loss) / self.P
+            total_loss = permutation_loss + loss_seg
+            batch_loss.append(total_loss)
+            optimizer.zero_grad()
+            total_loss.backward()
+            optimizer.step()
+        batch_loss = torch.sum(torch.tensor(batch_loss) / len(data_loader))
+        return batch_loss
+
+    def validate(self, model, val_loader, criterion_seg, criterion_ptx):
+        running_loss_eval = []
+        model.eval()
+        with torch.no_grad():
+            for ptx_img, labels, imgs_seg, segs_gt in val_loader:
+                permutation_loss = 0
+                ptx_img = ptx_img.permute((1, 0, 2, 3, 4)).to(DEVICE)
+                labels = labels.permute((1, 0)).to(DEVICE)
+                imgs_seg = imgs_seg.to(DEVICE)
+                segs_gt = segs_gt.to(DEVICE)
+                out_seg = model(imgs_seg, pretext=False)
+                loss_seg = criterion_seg(out_seg, segs_gt)
+                for n, (imgs, label) in enumerate(zip(ptx_img, labels)):
+                    out_ptx = model(imgs, pretext=True)
+                    pretext_loss = criterion_ptx(out_ptx, label)
+                    permutation_loss += pretext_loss
+                permutation_loss = torch.sum(permutation_loss) / self.P
+                total_loss = permutation_loss + loss_seg
+                running_loss_eval.append(total_loss)
+            running_loss_eval = torch.sum(torch.tensor(running_loss_eval) / len(val_loader))
+        return running_loss_eval
+
+    def train_pretext(self, train_loader, val_loader, model, optimizer, criterion, epoch, loss_history, val_history):
+        loop = tqdm(range(epoch, self.n_epochs_pretext), total=self.n_epochs_pretext-epoch, leave=False)
+        for e in loop:
+            model.train()
+            # train loop
+            batch_loss = self.train_batch(train_loader, model, criterion, optimizer)
+            loss_history.append(batch_loss.item())
+            # val loop
+            model.eval()
+            val_loss = self.validate(val_loader, model, criterion)
+            val_history.append(val_loss.item())
+            # print statistics
+            loop.set_description(f'Epoch pretext processed')
+            loop.set_postfix(train_loss=loss_history[-1], val_loss=val_history[-1])
+            # checkpoint
+            checkpoint = {
+                'epoch': e,
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'loss_history': loss_history,
+                'val_history': val_history
+            }
+            utility.save_checkpoint(checkpoint, path=os.path.join(os.curdir,
+                                                                  'saved_models/jigsaw_checkpoint_pretext.pth'))
+        # save the model
+        utility.save_model(model, path=os.path.join(os.curdir, 'saved_models/jigsaw_model_pretext.pth'))
+
+    def evaluate(self, dataloader, model, p_threshold, T=0.3):
+        output_path = os.path.join(os.curdir, f'saved_models/predictions_{model.name}')
+        prediction_samples = []
+        model.eval()
+        loop = tqdm(enumerate(dataloader), total=len(dataloader), leave=False)
+        ious = []
+        with torch.no_grad():
+            for idx, batch in loop:
+                img = batch[2].to(DEVICE)
+                # gt = batch[1].squeeze(1).view(-1).to(DEVICE)
+                gt = batch[3].to(DEVICE)
+                output = torch.sigmoid(model(img, pretext=False)).squeeze(0)
+                prediction = (output > p_threshold).float()
+                gt = gt.squeeze(0)
+                if random.random() > 0.5 and len(prediction_samples) < 10:
+                    prediction_samples.append((gt, prediction))
+                    torchvision.utils.save_image(gt, os.path.join(output_path, f'GT_{idx}.png'))
+                    torchvision.utils.save_image(prediction, os.path.join(output_path, f'PRED_{idx}.png'))
+                prediction = prediction.view(-1)
+                gt = gt.view(-1)
+                true_positives = torch.sum(torch.tensor([1.0 if p == 1.0 and g == 1.0 else 0.0
+                                                         for p, g in zip(prediction, gt)]))
+                false_positives = torch.sum(torch.tensor([1.0 if p == 1.0 and g == 0.0 else 0.0
+                                                         for p, g in zip(prediction, gt)]))
+                false_negatives = torch.sum(torch.tensor([1.0 if p == 0.0 and g == 1.0 else 0.0
+                                                         for p, g in zip(prediction, gt)]))
+                iou = true_positives / (true_positives + false_negatives + false_positives)
+                ious.append((iou > T).float())
+                loop.set_postfix(accuracy=torch.sum(torch.tensor(ious)).item()/len(ious))
+            accuracy = torch.sum(torch.tensor(ious)).item()/len(ious)
+        return accuracy
 
 
 class ContrastiveLearningTrainer(Trainer):
@@ -560,22 +723,30 @@ class CustomApproachTrainer(Trainer):
         # save model
         utility.save_model(model, path=os.path.join(os.curdir, 'saved_models/personal_model_pretext.pth'))
 
-# Jigsaw
-# PRETEXT
-trainer = JigsawTrainer(n_epochs_pretext=5, n_epochs_segmentation=100, P=30, N=3, batch_size=64)
-data_pretext, phase = get_jigsaw_pretext(P=30, batch_size=64)
-if phase == 'pretext':
-    trainer.train_pretext(**data_pretext)
-data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
-                                            batch_size=64, technique='jigsaw')
-# FINETUNE
-if phase == 'fine_tune':
-    trainer.train_segmentation(**data_segmentation)
-# otherwise the training is completed, load the model and evaluate
-model = data_segmentation['model']
-test_data = get_eval_dataset()
-# TEST
-accuracy = trainer.evaluate(test_data, model, p_threshold=0.6)
+# JiGen
+trainer = JigsawTrainer(n_epochs=10, P=10, N=3, batch_size=32)
+data, phase = get_jigen_data(P=10, batch_size=32)
+# if phase == 'train':
+#     trainer.train(**data)
+model = data['model']
+test_data = JiGenData(P=10, mode='test')
+dataloader_test = DataLoader(test_data, batch_size=1, shuffle=True)
+accuracy = trainer.evaluate(dataloader_test, model, p_threshold=0.6)
+
+# trainer = JigsawTrainerPretext(n_epochs_pretext=5, n_epochs_segmentation=100, P=5, N=3, batch_size=32)
+# data_pretext, phase = get_jigsaw_pretext(P=5, batch_size=32)
+# if phase == 'pretext':
+#     trainer.train_pretext(**data_pretext)
+# data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
+#                                             batch_size=32, technique='jigsaw')
+# # FINETUNE
+# if phase == 'fine-tune':
+#     trainer.train_segmentation(**data_segmentation)
+# # otherwise the training is completed, load the model and evaluate
+# model = data_segmentation['model']
+# test_data = get_eval_dataset()
+# # TEST
+# accuracy = trainer.evaluate(test_data, model, p_threshold=0.6)
 
 # Context Restoration
 # trainer = ContextRestorationTrainer(n_epochs_pretext=5, n_epochs_segmentation=10)

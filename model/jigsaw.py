@@ -1,5 +1,3 @@
-import random
-
 import torch
 import torch.nn as nn
 import os
@@ -13,6 +11,24 @@ class JiGen(nn.Module):
         super(JiGen, self).__init__()
         self.name = 'jigsaw'
         self.P = P
+        self.pretext_model = JiGenPretext(P=P)
+        self.segmentation_model = JiGenSegmentation()
+        self.optimizer = torch.optim.Adam(self.parameters())
+
+    def forward(self, x, pretext):
+        if pretext:
+            return self.pretext_model(x)
+        else:
+            return self.segmentation_model(x)
+
+
+class JiGenPretext(nn.Module):
+
+    def __init__(self, P):
+        super(JiGenPretext, self).__init__()
+        self.P = P
+        self.name = 'jigsaw'
+        self.P = P
         self.resnet = resnet34()
         self.model = torch.nn.Sequential(self.resnet.conv1, self.resnet.bn1,
                                          self.resnet.relu, self.resnet.maxpool,
@@ -21,6 +37,25 @@ class JiGen(nn.Module):
                                          self.resnet.avgpool)
 
         self.pretext_head = nn.Sequential(nn.Linear(512, 256), nn.ReLU(), nn.Linear(256, self.P))
+
+    def forward(self, x):
+        x = self.model(x)
+        x = torch.flatten(x, 1)
+        x = self.pretext_head(x)
+        return x
+
+
+class JiGenSegmentation(nn.Module):
+
+    def __init__(self):
+        super(JiGenSegmentation, self).__init__()
+        self.name = 'jigsaw'
+        self.resnet = resnet34()
+        self.model = torch.nn.Sequential(self.resnet.conv1, self.resnet.bn1,
+                                         self.resnet.relu, self.resnet.maxpool,
+                                         self.resnet.layer1, self.resnet.layer2,
+                                         self.resnet.layer3, self.resnet.layer4,
+                                         self.resnet.avgpool)
         self.fcn = nn.Sequential(
             # input [N x 2048 x 1 x 1]
             # output [N x 1024 x 4 x 4]
@@ -52,14 +87,13 @@ class JiGen(nn.Module):
             # which implicitly implements the Sigmoid function.
         )
 
-    def forward(self, x, pretext=False):
+    def forward(self, x):
         x = self.model(x)
-        if pretext:
-            x = torch.flatten(x, 1)
-            x = self.pretext_head(x)
-        else:
-            x = self.fcn(x)
+        x = self.fcn(x)
         return x
+
+
+
 
 # batch = torch.randn((64, 3, 128, 128))
 # model = JiGen()
