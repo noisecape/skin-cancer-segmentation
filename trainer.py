@@ -433,7 +433,7 @@ class JigenTrainer:
         self.technique = technique
 
     def train(self, model, train_loader, val_loader, optimizer, criterion_ptx, criterion_seg, epoch, loss_history, val_history):
-        loop = tqdm(range(0, self.n_epochs), total=self.n_epochs - epoch, leave=False)
+        loop = tqdm(range(epoch, self.n_epochs), total=self.n_epochs - epoch, leave=False)
         for e in loop:
             batch_loss = self.train_batch(model, train_loader, criterion_seg, criterion_ptx, optimizer)
             loss_history.append(batch_loss.item())

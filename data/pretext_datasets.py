@@ -17,7 +17,7 @@ class ContextRestorationDataPretext(Dataset):
 
     imgs_path = 'data/Resized/Unlabelled'
 
-    def __init__(self, mode='train', T=20, split=[0.8, 0.2]):
+    def __init__(self, mode='train', T=20, split=[0.9, 0.1]):
         super(ContextRestorationDataPretext, self).__init__()
         self.T = T
         self.images = os.listdir(os.path.join(os.curdir, ContextRestorationDataPretext.imgs_path))
@@ -103,7 +103,7 @@ class ContrastiveLearningDataPretext(Dataset):
 
     imgs_path = 'data/Resized/Unlabelled'
 
-    def __init__(self, mode='train', split=[0.8, 0.2]):
+    def __init__(self, mode='train', split=[0.9, 0.1]):
         super(ContrastiveLearningDataPretext, self).__init__()
         self.images = os.listdir(os.path.join(os.curdir, ContrastiveLearningDataPretext.imgs_path))
         self.mode = mode
@@ -363,7 +363,7 @@ class CustomDataPretext(Dataset):
 
     unlabelled_path = 'data/Resized/Unlabelled'
 
-    def __init__(self, mode='train', split=[0.8, 0.2]):
+    def __init__(self, mode='train', split=[0.9, 0.1]):
         super(CustomDataPretext, self).__init__()
         self.imgs_label = os.listdir(os.path.join(os.curdir, CustomDataPretext.unlabelled_path))
         self.mode = mode
@@ -400,8 +400,8 @@ class CustomDataPretext(Dataset):
         return self.process_batch(idx)
 
     def __len__(self):
-        # return len(self.data)
-        return 100
+        return len(self.data)
+        # return 100
 
     def get_data(self):
         if self.mode == 'train':

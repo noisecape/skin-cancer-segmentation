@@ -1,4 +1,4 @@
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 import os
 from PIL import Image
 import torchvision
@@ -48,8 +48,8 @@ class SegmentationDataset(Dataset):
         return img, gt
 
     def __len__(self):
-        # return len(self.data)
-        return 100
+        return len(self.data)
+        # return 100
 
     def visualize_image(self, x):
         plt.figure(figsize=(16, 16))
