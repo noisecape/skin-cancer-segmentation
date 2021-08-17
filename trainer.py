@@ -144,7 +144,7 @@ def get_custom_approach_pretext(batch_size):
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), weight_decay=0.01, lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), weight_decay=0.01, lr=0.0001)
     epoch = 0
     loss_history = []
     val_history = []
@@ -295,8 +295,7 @@ class Trainer(ABC):
         model.eval()
         loop = tqdm(enumerate(dataloader), total=len(dataloader), leave=False)
         ious = []
-        precision = []
-        recall = []
+        ious_no_threshold = []
         dice_score = []
         with torch.no_grad():
             for idx, batch in loop:
@@ -319,20 +318,18 @@ class Trainer(ABC):
                 false_negatives = torch.sum(torch.tensor([1.0 if p == 0.0 and g == 1.0 else 0.0
                                                          for p, g in zip(prediction, gt)]))
                 iou = true_positives / (true_positives + false_negatives + false_positives)
-                ious.append((iou > T).float())
-                precision.append(true_positives / (true_positives + false_positives).item())
-                recall.append(true_positives / (true_positives + false_negatives).item())
+                ious.append((iou.float() if iou > T else 0.0))
+                ious_no_threshold.append(iou.float())
                 dice_score.append(((2 * true_positives) / ((2 * true_positives) + false_negatives + false_positives)).item())
                 loop.set_postfix(t_IoU=np.sum(ious) / len(ious),
-                                 dice_score=np.sum(dice_score) / len(dice_score),
-                                 precision=np.sum(precision) / len(precision),
-                                 recall=np.sum(recall) / len(recall))
+                                 IoU=np.sum(ious_no_threshold) / len(ious_no_threshold),
+                                 dice_score=np.sum(dice_score) / len(dice_score))
 
         accuracy = np.sum(ious) / len(ious)
+        accuracy_no_t = np.sum(ious_no_threshold) / len(ious)
         dice_score = np.sum(dice_score) / len(dice_score)
-        precision = np.sum(precision) / len(precision)
-        recall = np.sum(recall) / len(recall)
-        return accuracy, dice_score, precision, recall
+
+        return accuracy, accuracy_no_t, dice_score
 
 
     def visualize_prediction(self, model, dataloader, p_threshold):
