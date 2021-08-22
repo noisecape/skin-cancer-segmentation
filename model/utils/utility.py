@@ -2,6 +2,7 @@ import torch
 import os
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
+
 def save_model(model, path):
     torch.save(model.state_dict(), path)
 
@@ -13,6 +14,14 @@ def save_checkpoint(checkpoint, path):
 def load_model(model, path):
     model.load_state_dict(torch.load(path, map_location=DEVICE))
     return model
+
+
+def get_train_history(path):
+    checkpoint = torch.load(path, map_location=DEVICE)
+    epoch = checkpoint['epoch']
+    loss_history = checkpoint['loss_history']
+    val_history = checkpoint['val_history']
+    return epoch, loss_history, val_history
 
 
 def load_checkpoint(model, optimizer, path):

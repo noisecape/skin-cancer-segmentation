@@ -297,6 +297,8 @@ class Trainer(ABC):
         ious = []
         ious_no_threshold = []
         dice_score = []
+        precision = []
+        recall = []
         with torch.no_grad():
             for idx, batch in loop:
                 img = batch[0].to(DEVICE)
@@ -321,15 +323,20 @@ class Trainer(ABC):
                 ious.append((iou.float() if iou > T else 0.0))
                 ious_no_threshold.append(iou.float())
                 dice_score.append(((2 * true_positives) / ((2 * true_positives) + false_negatives + false_positives)).item())
+                precision.append((true_positives / (true_positives + false_positives)))
+                recall.append((true_positives / (true_positives + false_negatives)))
                 loop.set_postfix(t_IoU=np.sum(ious) / len(ious),
                                  IoU=np.sum(ious_no_threshold) / len(ious_no_threshold),
-                                 dice_score=np.sum(dice_score) / len(dice_score))
+                                 dice_score=np.sum(dice_score) / len(dice_score),
+                                 precision=np.sum(precision) / len(precision),
+                                 recall=np.sum(recall) / len(recall))
 
         accuracy = np.sum(ious) / len(ious)
         accuracy_no_t = np.sum(ious_no_threshold) / len(ious)
         dice_score = np.sum(dice_score) / len(dice_score)
-
-        return accuracy, accuracy_no_t, dice_score
+        precision = np.sum(precision) / len(precision)
+        recall = np.sum(recall) / len(recall)
+        return accuracy, accuracy_no_t, dice_score, precision, recall
 
 
     def visualize_prediction(self, model, dataloader, p_threshold):

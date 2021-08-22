@@ -3,6 +3,7 @@ import torchvision
 import torch.nn as nn
 from torchvision.models.resnet import resnet34
 import os
+from model.utils.criterions import ContrastiveLoss
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
