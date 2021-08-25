@@ -1,9 +1,10 @@
 import torch
 import torchvision
 import torch.nn as nn
-from torchvision.models.resnet import resnet34
-import os
+
 from model.utils.criterions import ContrastiveLoss
+from resnet import ResNet, BasicBlock
+import os
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -13,10 +14,7 @@ class SimCLR(nn.Module):
     def __init__(self, out_dim=512):
         super(SimCLR, self).__init__()
         self.name = 'contrastive_learning'
-        resnet = resnet34()
-        self.backbone = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
-                                      resnet.layer1, resnet.layer2, resnet.layer3,
-                                      resnet.layer4, resnet.avgpool)
+        self.backbone = ResNet(BasicBlock, [3, 4, 6, 3])
         # used for pretext task
         self.pretext_head = nn.Sequential(nn.Linear(out_dim, out_dim), nn.ReLU(), nn.Linear(out_dim, out_dim))
         # used for segmentation task
@@ -79,16 +77,16 @@ class SimCLR(nn.Module):
 
 # pretext sample
 # x = torch.randn((64, 3, 128, 128))
-# model = SimCLR(out_dim=2048)
+# model = SimCLR(out_dim=512)
 # emb_1, emb_2 = model(x, pretext=True)
 # criterion = ContrastiveLoss()
 # loss = criterion(emb_1, emb_2)
 # print(loss)
-
-# segmentation sample
+#
+# # segmentation sample
 # x = torch.randn((64, 3, 128, 128))
 # gt = torch.randn((64, 1, 128, 128))
-# model = SimCLR(out_dim=2048)
+# model = SimCLR(out_dim=512)
 # prediction = model(x, pretext=False)
 # criterion = torch.nn.BCEWithLogitsLoss()
 # loss = criterion(prediction, gt)

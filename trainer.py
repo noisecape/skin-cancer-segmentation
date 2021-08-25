@@ -19,6 +19,7 @@ import torchvision
 import matplotlib.pyplot as plt
 from model.utils import utility
 from model.utils.utility import load_model, load_checkpoint
+from model.custom_approach import BasicBlock
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 saved_files_path = os.path.join(os.curdir, 'saved_models')
@@ -137,7 +138,7 @@ def get_context_restoration_pretext(T, batch_size):
 
 
 def get_custom_approach_pretext(batch_size):
-    model = CustomSegmentation().to(DEVICE)
+    model = CustomSegmentation(BasicBlock, [3, 4, 6, 3], n_augmentations=4).to(DEVICE)
     train_data = CustomDataPretext(mode='train')
     val_data = CustomDataPretext(mode='val')
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}

@@ -1,6 +1,6 @@
 import torch
-from torchvision.models.resnet import resnet34
 import torch.nn as nn
+from resnet import ResNet, BasicBlock
 
 
 class CustomSegmentation(nn.Module):
@@ -8,11 +8,8 @@ class CustomSegmentation(nn.Module):
     def __init__(self, n_augmentations=4):
         super(CustomSegmentation, self).__init__()
         self.name = 'custom_approach'
-        resnet = resnet34()
         self.n_augmentations = n_augmentations
-        self.backbone = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool,
-                                      resnet.layer1, resnet.layer2, resnet.layer3,
-                                      resnet.layer4, resnet.avgpool)
+        self.backbone = ResNet(BasicBlock, [3, 4, 6, 3])
 
         self.head_pretext = nn.Sequential(nn.Linear(512, 64), nn.ReLU(inplace=True),
                                           nn.Dropout(0.5), nn.Linear(64, self.n_augmentations))
@@ -59,5 +56,5 @@ class CustomSegmentation(nn.Module):
 
 # model = CustomSegmentation(n_augmentations=4)
 # x = torch.randn((64, 3, 128, 128))
-# result = model(x, pretext=True)
+# result = model(x, pretext=False)
 # print(result)
