@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from resnet import ResNet, BasicBlock
+from model.resnet import ResNet, BasicBlock
 
 
 class CustomSegmentation(nn.Module):

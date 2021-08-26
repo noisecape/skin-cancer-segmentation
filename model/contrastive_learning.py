@@ -1,9 +1,7 @@
 import torch
 import torchvision
 import torch.nn as nn
-
-from model.utils.criterions import ContrastiveLoss
-from resnet import ResNet, BasicBlock
+from model.resnet import ResNet, BasicBlock
 import os
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'

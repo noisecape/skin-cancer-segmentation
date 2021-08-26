@@ -138,14 +138,14 @@ def get_context_restoration_pretext(T, batch_size):
 
 
 def get_custom_approach_pretext(batch_size):
-    model = CustomSegmentation(BasicBlock, [3, 4, 6, 3], n_augmentations=4).to(DEVICE)
+    model = CustomSegmentation(n_augmentations=4).to(DEVICE)
     train_data = CustomDataPretext(mode='train')
     val_data = CustomDataPretext(mode='val')
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), weight_decay=0.01, lr=0.0001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.995, weight_decay=0.01, nesterov=True)
     epoch = 0
     loss_history = []
     val_history = []
@@ -333,7 +333,7 @@ class Trainer(ABC):
                                  recall=np.sum(recall) / len(recall))
 
         accuracy = np.sum(ious) / len(ious)
-        accuracy_no_t = np.sum(ious_no_threshold) / len(ious)
+        accuracy_no_t = np.sum(ious_no_threshold) / len(ious_no_threshold)
         dice_score = np.sum(dice_score) / len(dice_score)
         precision = np.sum(precision) / len(precision)
         recall = np.sum(recall) / len(recall)
@@ -405,7 +405,7 @@ class JigenTrainer:
         # save the model
         utility.save_model(model, path=os.path.join(os.curdir, 'saved_models/jigen_model.pth'))
 
-    def train_batch(self, model, data_loader, criterion_seg, criterion_ptx, optimizer):
+    def train_batch(self, model, data_loader, criterion_seg, criterion_ptx, optimizer, beta=0.6, alpha=0.9):
         model.train()
         batch_loss = []
         for ptx_img, labels, imgs_seg, segs_gt in data_loader:
@@ -419,7 +419,7 @@ class JigenTrainer:
             for n, (imgs, label) in enumerate(zip(ptx_img, labels)):
                 out_ptx = model(imgs, pretext=True)
                 pretext_loss = criterion_ptx(out_ptx, label)
-                permutation_loss += pretext_loss
+                permutation_loss += (alpha*pretext_loss)
             permutation_loss = torch.sum(permutation_loss) / self.P
             total_loss = permutation_loss + loss_seg
             batch_loss.append(total_loss)
@@ -484,6 +484,7 @@ class JigenTrainer:
         model.eval()
         loop = tqdm(enumerate(dataloader), total=len(dataloader), leave=False)
         ious = []
+        ious_no_threshold = []
         dice_score = []
         precision = []
         recall = []
@@ -508,20 +509,23 @@ class JigenTrainer:
                 false_negatives = torch.sum(torch.tensor([1.0 if p == 0.0 and g == 1.0 else 0.0
                                                          for p, g in zip(prediction, gt)]))
                 iou = true_positives / (true_positives + false_negatives + false_positives)
-                ious.append((iou > T).float())
+                ious.append((iou.float() if iou > T else 0.0))
+                ious_no_threshold.append(iou.float())
                 precision.append(true_positives / (true_positives + false_positives).item())
                 recall.append(true_positives / (true_positives + false_negatives).item())
                 dice_score.append(((2 * true_positives) / ((2*true_positives) + false_negatives + false_positives)).item())
                 loop.set_postfix(t_IoU=np.sum(ious) / len(ious),
+                                 IoU=np.sum(ious_no_threshold) / len(ious_no_threshold),
                                  dice_score=np.sum(dice_score) / len(dice_score),
                                  precision=np.sum(precision) / len(precision),
                                  recall=np.sum(recall) / len(recall))
 
         accuracy = np.sum(ious) / len(ious)
+        accuracy_no_t = np.sum(ious_no_threshold) / len(ious_no_threshold)
         dice_score = np.sum(dice_score) / len(dice_score)
         precision = np.sum(precision) / len(precision)
         recall = np.sum(recall) / len(recall)
-        return accuracy, dice_score, precision, recall
+        return accuracy, accuracy_no_t, dice_score, precision, recall
 
 
 class ContrastiveLearningTrainer(Trainer):
@@ -714,21 +718,15 @@ class CustomApproachTrainer(Trainer):
 
 
 # JiGen
-# trainer = JigenTrainer(n_epochs=10, P=10, N=3, batch_size=32)
-# data, phase = get_jigen_data(P=10, batch_size=32)
-# if phase == 'train':
-#     trainer.train(**data)
-# model = data['model']
-# test_data = JiGenData(P=10, mode='test')
-# dataloader_test = DataLoader(test_data, batch_size=1, shuffle=True)
-# accuracy = trainer.evaluate(dataloader_test, model, p_threshold=0.5, T=0.65)
+trainer = JigenTrainer(n_epochs=10, P=10, N=3, batch_size=32)
+data, phase = get_jigen_data(P=10, batch_size=32)
+if phase == 'train':
+    trainer.train(**data)
+model = data['model']
+test_data = JiGenData(P=10, mode='test')
+dataloader_test = DataLoader(test_data, batch_size=1, shuffle=True)
+accuracy = trainer.evaluate(dataloader_test, model, p_threshold=0.5, T=0.65)
 
-# trainer = JigsawTrainerPretext(n_epochs_pretext=5, n_epochs_segmentation=100, P=5, N=3, batch_size=32)
-# data_pretext, phase = get_jigsaw_pretext(P=5, batch_size=32)
-# if phase == 'pretext':
-#     trainer.train_pretext(**data_pretext)
-# data_segmentation, phase = get_segmentation(data_pretext['model'], data_pretext['optimizer'],
-#                                             batch_size=32, technique='jigsaw')
 # # FINETUNE
 # if phase == 'fine-tune':
 #     trainer.train_segmentation(**data_segmentation)
