@@ -1,26 +1,24 @@
 import os
 import torchvision
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from PIL import Image
 import random
 import matplotlib.pyplot as plt
 import numpy as np
-import itertools
-from torch.random import default_generator
-# # in case of testing
-# from model.context_restoration import ContextRestoration
-from tqdm import tqdm
 
 
 class ContextRestorationDataPretext(Dataset):
 
-    imgs_path = 'data/Resized/Unlabelled'
-
-    def __init__(self, mode='train', T=20, split=[0.9, 0.1]):
+    def __init__(self, mode='train', T=20, split=[0.9, 0.1], full_data=False):
         super(ContextRestorationDataPretext, self).__init__()
+        self.full_data = full_data
+        if self.full_data:
+            self.imgs_path = 'data/Resized_All/Unlabelled'
+        else:
+            self.imgs_path = 'data/Resized/Unlabelled'
         self.T = T
-        self.images = os.listdir(os.path.join(os.curdir, ContextRestorationDataPretext.imgs_path))
+        self.images = os.listdir(os.path.join(os.curdir, self.imgs_path))
         self.mode = mode
         self.split = split
         self.data = self.get_data()
@@ -32,7 +30,7 @@ class ContextRestorationDataPretext(Dataset):
             return self.images[int(len(self.images) * self.split[0]):]
 
     def build_data(self, img_label):
-        img_path = os.path.join(ContextRestorationDataPretext.imgs_path, img_label)
+        img_path = os.path.join(self.imgs_path, img_label)
         img = Image.open(os.path.join(os.curdir, img_path))
         tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
                                                            torchvision.transforms.Normalize((.5, .5, .5),
@@ -101,11 +99,14 @@ class ContextRestorationDataPretext(Dataset):
 
 class ContrastiveLearningDataPretext(Dataset):
 
-    imgs_path = 'data/Resized/Unlabelled'
-
-    def __init__(self, mode='train', split=[0.9, 0.1]):
+    def __init__(self, mode='train', split=[0.9, 0.1], full_data=False):
         super(ContrastiveLearningDataPretext, self).__init__()
-        self.images = os.listdir(os.path.join(os.curdir, ContrastiveLearningDataPretext.imgs_path))
+        self.full_data = full_data
+        if self.full_data:
+            self.imgs_path = 'data/Resized_All/Unlabelled'
+        else:
+            self.imgs_path = 'data/Resized/Unlabelled'
+        self.images = os.listdir(os.path.join(os.curdir, self.imgs_path))
         self.mode = mode
         self.split = split
         self.data = self.get_data()
@@ -127,7 +128,7 @@ class ContrastiveLearningDataPretext(Dataset):
 
     def __getitem__(self, idx):
         x = self.data[idx]
-        abs_path = os.path.join(os.curdir, ContrastiveLearningDataPretext.imgs_path)
+        abs_path = os.path.join(os.curdir, self.imgs_path)
         img_path = os.path.join(abs_path, x)
         img = Image.open(os.path.join(os.curdir, img_path))
         tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
@@ -143,16 +144,20 @@ class ContrastiveLearningDataPretext(Dataset):
 
 class JiGenData(Dataset):
 
-    imgs_path = 'data/Resized/Labelled/Images'
-    gt_path = 'data/Resized/Labelled/Groundtruth'
-
-    def __init__(self, P, N=3, split=[0.2, 0.1, 0.7], mode='train'):
+    def __init__(self, P, N=3, split=[0.2, 0.1, 0.7], mode='train', full_data=False):
         super(JiGenData, self).__init__()
+        self.full_data = full_data
+        if self.full_data:
+            self.imgs_path = 'data/Resized_All/Labelled/Images'
+            self.gt_path = 'data/Resized_All/Labelled/Groundtruth'
+        else:
+            self.imgs_path = 'data/Resized/Labelled/Images'
+            self.gt_path = 'data/Resized/Labelled/Groundtruth'
         self.P = P
         self.N = N
         self.mode = mode
-        self.imgs_labels = sorted(os.listdir(os.path.join(os.curdir, JiGenData.imgs_path)))
-        self.gt_labels = sorted(os.listdir(os.path.join(os.curdir, JiGenData.gt_path)))
+        self.imgs_labels = sorted(os.listdir(os.path.join(os.curdir, self.imgs_path)))
+        self.gt_labels = sorted(os.listdir(os.path.join(os.curdir, self.gt_path)))
         if mode == 'train':
             start_idx = 0
             end_idx = int(len(self.imgs_labels) * split[0])
@@ -169,7 +174,6 @@ class JiGenData(Dataset):
     def get_data(self, start_idx, end_idx):
         data = [(img, gt) for img, gt in zip(self.imgs_labels[start_idx:end_idx], self.gt_labels[start_idx:end_idx])]
         return data
-
 
     def get_permutation_set(self):
         indices = [0, 1, 2, 3, 4, 5, 6, 7, 8]
@@ -188,8 +192,8 @@ class JiGenData(Dataset):
         return True
 
     def get_segmentation_batch(self, idx):
-        img_path = os.path.join(JiGenData.imgs_path, self.imgs_labels[idx])
-        gt_path = os.path.join(JiGenData.gt_path, self.gt_labels[idx])
+        img_path = os.path.join(self.imgs_path, self.imgs_labels[idx])
+        gt_path = os.path.join(self.gt_path, self.gt_labels[idx])
         img = Image.open(os.path.join(os.curdir, img_path)).convert("RGB")
         gt = np.array(Image.open(os.path.join(os.curdir, gt_path)).convert('L'), dtype=np.float32)
         gt[gt > 0] = 1.0
@@ -204,22 +208,20 @@ class JiGenData(Dataset):
     def build_data(self, img_label, permutations):
         imgs = torch.ones((self.P, 3, 128, 128))
         labels = torch.ones(self.P, dtype=int)
-        for idx in range(len(permutations)):
-            imgs[idx], labels[idx] = self.permute_img(img_label, permutations)
+        permutation_chosen_idx = [0 for _ in range(int(len(permutations)/2.5))]
+        while len(permutation_chosen_idx) < self.P:
+            random_choice = random.randint(0, len(permutations) - 1)
+            permutation_chosen_idx.append(random_choice)
+        random.shuffle(permutation_chosen_idx)
+        for idx, p_idx in enumerate(permutation_chosen_idx):
+            chosen_p = permutations[p_idx]
+            dir_path = os.path.join(os.curdir, self.imgs_path)
+            img_path = os.path.join(dir_path, img_label)
+            img = Image.open(img_path)
+            permuted_img = self.shuffle_tiles(img, chosen_p)
+            imgs[idx] = permuted_img
+            labels[idx] = p_idx
         return imgs, labels
-
-    def permute_img(self, img_label, permutations_set):
-        # retrieve the image
-        # apply a 3x3 grid
-        # calculate 100 permutations using the Hamming distance
-        # append each permutation into a list and return it
-        random_choice = random.randint(0, len(permutations_set)-1)
-        chosen_p = permutations_set[random_choice]
-        dir_path = os.path.join(os.curdir, JiGenData.imgs_path)
-        img_path = os.path.join(dir_path, img_label)
-        img = Image.open(img_path)
-        permuted_img = self.shuffle_tiles(img, chosen_p)
-        return permuted_img, random_choice
 
     def shuffle_tiles(self, img, chosen_p):
         tiles = [None] * self.N**2
@@ -260,11 +262,14 @@ class JiGenData(Dataset):
 
 class CustomDataPretext(Dataset):
 
-    unlabelled_path = 'data/Resized/Unlabelled'
-
-    def __init__(self, mode='train', split=[0.9, 0.1]):
+    def __init__(self, mode='train', split=[0.9, 0.1], full_data=False):
         super(CustomDataPretext, self).__init__()
-        self.imgs_label = os.listdir(os.path.join(os.curdir, CustomDataPretext.unlabelled_path))
+        self.full_data = full_data
+        if self.full_data:
+            self.unlabelled_path = 'data/Resized_All/Unlabelled'
+        else:
+            self.unlabelled_path = 'data/Resized/Unlabelled'
+        self.imgs_label = os.listdir(os.path.join(os.curdir, self.unlabelled_path))
         self.mode = mode
         self.split = split
         self.data = self.get_data()
@@ -293,7 +298,7 @@ class CustomDataPretext(Dataset):
     def process_batch(self, idx):
         # image path
         image_label = self.data[idx]
-        abs_path = os.path.join(os.curdir, CustomDataPretext.unlabelled_path)
+        abs_path = os.path.join(os.curdir, self.unlabelled_path)
         img_path = os.path.join(abs_path, image_label)
         image = Image.open(os.path.join(os.curdir, img_path))
         augmentation_idx = random.randint(0, len(self.augmentations)-1)

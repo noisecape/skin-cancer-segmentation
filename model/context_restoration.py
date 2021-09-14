@@ -69,21 +69,4 @@ class UNET(nn.Module):
         else:
             return self.final_conv_segmentation(x)
 
-# Pretext sample
-# x = torch.randn((64, 3, 128, 128)).to(DEVICE)
-# model = ContextRestoration().to(DEVICE)
-# result = model(x, pretext=True)
-# criterion = torch.nn.MSELoss()
-# loss = criterion(result, x)
-# assert x.shape == (64, 3, 128, 128)
-# print()
 
-# Segmentation sample
-# x = torch.randn((64, 3, 128, 128))
-# gt = torch.randn((64, 1, 128, 128))
-# model = ContextRestoration()
-# prediction = model(x, pretext=False)
-# criterion = torch.nn.BCEWithLogitsLoss()
-# loss = criterion(prediction, gt)
-# assert prediction.shape == (64, 1, 128, 128)
-# print()

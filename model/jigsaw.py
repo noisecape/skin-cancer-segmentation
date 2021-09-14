@@ -13,7 +13,7 @@ class JiGen(nn.Module):
         self.P = P
         self.pretext_model = JiGenPretext(P=P)
         self.segmentation_model = JiGenSegmentation()
-        self.optimizer = torch.optim.SGD(self.parameters(), lr=0.001, weight_decay=0.1, momentum=0.97)
+        self.optimizer = torch.optim.SGD(self.parameters(), lr=0.001, weight_decay=0.1)
 
     def forward(self, x, pretext):
         if pretext:

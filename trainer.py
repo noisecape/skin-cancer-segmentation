@@ -19,16 +19,14 @@ import torchvision
 import matplotlib.pyplot as plt
 from model.utils import utility
 from model.utils.utility import load_model, load_checkpoint
-from model.custom_approach import BasicBlock
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 saved_files_path = os.path.join(os.curdir, 'saved_models')
 
-
-def get_jigen_data(P, batch_size):
+def get_jigen_data(P, batch_size, full_data):
     model = JiGen(P=P).to(DEVICE)
-    train_data = JiGenData(P=P, mode='train')
-    val_data = JiGenData(P=P, mode='val')
+    train_data = JiGenData(P=P, mode='train', full_data=full_data, split=[0.6, 0.1, 0.3])
+    val_data = JiGenData(P=P, mode='val', full_data=full_data, split=[0.6, 0.1, 0.3])
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
@@ -55,13 +53,13 @@ def get_jigen_data(P, batch_size):
 
 def get_supervised_data(batch_size):
     model = UNET(in_channels=3, name='supervised').to(DEVICE)
-    train_data = SegmentationDataset(mode='train', split_perc=[0.2, 0.1, 0.7])
-    val_data = SegmentationDataset(mode='val', split_perc=[0.2, 0.1, 0.7])
+    train_data = SegmentationDataset(mode='train', split_perc=[0.6, 0.1, 0.3])
+    val_data = SegmentationDataset(mode='val', split_perc=[0.6, 0.1, 0.3])
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
     criterion = torch.nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(model.parameters(), weight_decay=0.01, lr=0.001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.0001, weight_decay=0.1)
     epoch = 0
     loss_history = []
     val_history = []
@@ -80,15 +78,15 @@ def get_supervised_data(batch_size):
     return data, phase
 
 
-def get_contrastive_learning_pretext(batch_size):
+def get_contrastive_learning_pretext(batch_size, full_data):
     model = SimCLR().to(DEVICE)
-    train_data = ContrastiveLearningDataPretext(mode='train')
-    val_data = ContrastiveLearningDataPretext(mode='val')
+    train_data = ContrastiveLearningDataPretext(mode='train', full_data=full_data)
+    val_data = ContrastiveLearningDataPretext(mode='val', full_data=full_data)
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
     criterion = ContrastiveLoss().to(DEVICE)
-    optimizer = torch.optim.Adam(model.parameters(), weight_decay=0.01, lr=0.001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.0001, momentum=0.9, weight_decay=0.01, nesterov=True)
     epoch = 0
     loss_history = []
     val_history = []
@@ -108,16 +106,16 @@ def get_contrastive_learning_pretext(batch_size):
     return data, phase
 
 
-def get_context_restoration_pretext(T, batch_size):
+def get_context_restoration_pretext(T, batch_size, full_data):
     # model = ContextRestoration(in_channel=3).to(DEVICE)
     model = UNET(in_channels=3).to(DEVICE)
-    train_data = ContextRestorationDataPretext(T=T, mode='train')
-    val_data = ContextRestorationDataPretext(T=T, mode='val')
+    train_data = ContextRestorationDataPretext(T=T, mode='train', full_data=full_data)
+    val_data = ContextRestorationDataPretext(T=T, mode='val', full_data=full_data)
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), weight_decay=0.01, lr=0.001)
+    optimizer = torch.optim.SGD(model.parameters(), weight_decay=0.01, lr=0.001, momentum=0.995, nesterov=True)
     epoch = 0
     loss_history = []
     val_history = []
@@ -137,15 +135,15 @@ def get_context_restoration_pretext(T, batch_size):
     return data, phase
 
 
-def get_custom_approach_pretext(batch_size):
+def get_custom_approach_pretext(batch_size, full_data):
     model = CustomSegmentation(n_augmentations=4).to(DEVICE)
-    train_data = CustomDataPretext(mode='train')
-    val_data = CustomDataPretext(mode='val')
+    train_data = CustomDataPretext(mode='train', full_data=full_data)
+    val_data = CustomDataPretext(mode='val', full_data=full_data)
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.995, weight_decay=0.01, nesterov=True)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, weight_decay=0.01, momentum=0.995, nesterov=True)
     epoch = 0
     loss_history = []
     val_history = []
@@ -165,8 +163,8 @@ def get_custom_approach_pretext(batch_size):
 
 
 def get_segmentation(model, optimizer, batch_size, technique):
-    train_data = SegmentationDataset(mode='train')
-    val_data = SegmentationDataset(mode='val')
+    train_data = SegmentationDataset(mode='train', split_perc=[0.2, 0.1, 0.7])
+    val_data = SegmentationDataset(mode='val', split_perc=[0.2, 0.1, 0.7])
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}
     train_loader = DataLoader(train_data, **dataloader_params)
     val_loader = DataLoader(val_data, **dataloader_params)
@@ -222,7 +220,7 @@ def get_segmentation(model, optimizer, batch_size, technique):
 
 
 def get_eval_dataset():
-    dataset = SegmentationDataset('test')
+    dataset = SegmentationDataset(mode='test', split_perc=[0.2, 0.1, 0.7])
     dataloader_params = {'shuffle': True, 'batch_size': 1}
     dataloader = DataLoader(dataset, **dataloader_params)
     return dataloader
@@ -298,12 +296,11 @@ class Trainer(ABC):
         ious = []
         ious_no_threshold = []
         dice_score = []
-        precision = []
-        recall = []
+        sensitivity = []
+        specificity = []
         with torch.no_grad():
             for idx, batch in loop:
                 img = batch[0].to(DEVICE)
-                # gt = batch[1].squeeze(1).view(-1).to(DEVICE)
                 gt = batch[1].to(DEVICE)
                 output = torch.sigmoid(model(img, pretext=False)).squeeze(0)
                 prediction = (output > p_threshold).float()
@@ -316,6 +313,8 @@ class Trainer(ABC):
                 gt = gt.view(-1)
                 true_positives = torch.sum(torch.tensor([1.0 if p == 1.0 and g == 1.0 else 0.0
                                                          for p, g in zip(prediction, gt)]))
+                true_negatives = torch.sum(torch.tensor([1.0 if p == 0.0 and g == 0.0 else 0.0
+                                                         for p, g in zip(prediction, gt)]))
                 false_positives = torch.sum(torch.tensor([1.0 if p == 1.0 and g == 0.0 else 0.0
                                                          for p, g in zip(prediction, gt)]))
                 false_negatives = torch.sum(torch.tensor([1.0 if p == 0.0 and g == 1.0 else 0.0
@@ -324,20 +323,20 @@ class Trainer(ABC):
                 ious.append((iou.float() if iou > T else 0.0))
                 ious_no_threshold.append(iou.float())
                 dice_score.append(((2 * true_positives) / ((2 * true_positives) + false_negatives + false_positives)).item())
-                precision.append((true_positives / (true_positives + false_positives)))
-                recall.append((true_positives / (true_positives + false_negatives)))
+                sensitivity.append((true_positives / (true_positives + false_negatives)).item())
+                specificity.append((true_negatives / (true_negatives + false_positives)).item())
                 loop.set_postfix(t_IoU=np.sum(ious) / len(ious),
                                  IoU=np.sum(ious_no_threshold) / len(ious_no_threshold),
                                  dice_score=np.sum(dice_score) / len(dice_score),
-                                 precision=np.sum(precision) / len(precision),
-                                 recall=np.sum(recall) / len(recall))
+                                 sensitivity=np.sum(sensitivity) / len(sensitivity),
+                                 specificity=np.sum(specificity) / len(specificity))
 
         accuracy = np.sum(ious) / len(ious)
         accuracy_no_t = np.sum(ious_no_threshold) / len(ious_no_threshold)
         dice_score = np.sum(dice_score) / len(dice_score)
-        precision = np.sum(precision) / len(precision)
-        recall = np.sum(recall) / len(recall)
-        return accuracy, accuracy_no_t, dice_score, precision, recall
+        sensitivity = np.sum(sensitivity) / len(sensitivity)
+        specificity = np.sum(specificity) / len(specificity)
+        return accuracy, accuracy_no_t, dice_score, sensitivity, specificity
 
 
     def visualize_prediction(self, model, dataloader, p_threshold):
@@ -376,12 +375,14 @@ class SupervisedTrainer(Trainer):
 
 class JigenTrainer:
 
-    def __init__(self, n_epochs, P, N, batch_size, technique='jigen'):
+    def __init__(self, n_epochs, P, N, batch_size, technique='jigen', alpha=0.9, beta=0.6):
         self.P = P
         self.N = N
         self.batch_size = batch_size
         self.n_epochs = n_epochs
         self.technique = technique
+        self.alpha = alpha
+        self.beta = beta
 
     def train(self, model, train_loader, val_loader, optimizer, criterion_ptx, criterion_seg, epoch, loss_history, val_history):
         loop = tqdm(range(epoch, self.n_epochs), total=self.n_epochs - epoch, leave=False)
@@ -405,7 +406,7 @@ class JigenTrainer:
         # save the model
         utility.save_model(model, path=os.path.join(os.curdir, 'saved_models/jigen_model.pth'))
 
-    def train_batch(self, model, data_loader, criterion_seg, criterion_ptx, optimizer, beta=0.6, alpha=0.9):
+    def train_batch(self, model, data_loader, criterion_seg, criterion_ptx, optimizer):
         model.train()
         batch_loss = []
         for ptx_img, labels, imgs_seg, segs_gt in data_loader:
@@ -419,7 +420,7 @@ class JigenTrainer:
             for n, (imgs, label) in enumerate(zip(ptx_img, labels)):
                 out_ptx = model(imgs, pretext=True)
                 pretext_loss = criterion_ptx(out_ptx, label)
-                permutation_loss += (alpha*pretext_loss)
+                permutation_loss += (self.alpha*pretext_loss)
             permutation_loss = torch.sum(permutation_loss) / self.P
             total_loss = permutation_loss + loss_seg
             batch_loss.append(total_loss)
@@ -486,8 +487,8 @@ class JigenTrainer:
         ious = []
         ious_no_threshold = []
         dice_score = []
-        precision = []
-        recall = []
+        sensitivity = []
+        specificity = []
         with torch.no_grad():
             for idx, batch in loop:
                 img = batch[2].to(DEVICE)
@@ -504,6 +505,8 @@ class JigenTrainer:
                 gt = gt.view(-1)
                 true_positives = torch.sum(torch.tensor([1.0 if p == 1.0 and g == 1.0 else 0.0
                                                          for p, g in zip(prediction, gt)]))
+                true_negatives = torch.sum(torch.tensor([1.0 if p == 0.0 and g == 0.0 else 0.0
+                                                         for p, g in zip(prediction, gt)]))
                 false_positives = torch.sum(torch.tensor([1.0 if p == 1.0 and g == 0.0 else 0.0
                                                          for p, g in zip(prediction, gt)]))
                 false_negatives = torch.sum(torch.tensor([1.0 if p == 0.0 and g == 1.0 else 0.0
@@ -511,21 +514,21 @@ class JigenTrainer:
                 iou = true_positives / (true_positives + false_negatives + false_positives)
                 ious.append((iou.float() if iou > T else 0.0))
                 ious_no_threshold.append(iou.float())
-                precision.append(true_positives / (true_positives + false_positives).item())
-                recall.append(true_positives / (true_positives + false_negatives).item())
+                sensitivity.append((true_positives / (true_positives + false_negatives)).item())
+                specificity.append((true_negatives / (true_negatives + false_positives)).item())
                 dice_score.append(((2 * true_positives) / ((2*true_positives) + false_negatives + false_positives)).item())
                 loop.set_postfix(t_IoU=np.sum(ious) / len(ious),
                                  IoU=np.sum(ious_no_threshold) / len(ious_no_threshold),
                                  dice_score=np.sum(dice_score) / len(dice_score),
-                                 precision=np.sum(precision) / len(precision),
-                                 recall=np.sum(recall) / len(recall))
+                                 sensitivity=np.sum(sensitivity) / len(sensitivity),
+                                 specificity=np.sum(specificity) / len(specificity))
 
         accuracy = np.sum(ious) / len(ious)
         accuracy_no_t = np.sum(ious_no_threshold) / len(ious_no_threshold)
         dice_score = np.sum(dice_score) / len(dice_score)
-        precision = np.sum(precision) / len(precision)
-        recall = np.sum(recall) / len(recall)
-        return accuracy, accuracy_no_t, dice_score, precision, recall
+        sensitivity = np.sum(sensitivity) / len(sensitivity)
+        specificity = np.sum(specificity) / len(specificity)
+        return accuracy, accuracy_no_t, dice_score, sensitivity, specificity
 
 
 class ContrastiveLearningTrainer(Trainer):
@@ -718,14 +721,14 @@ class CustomApproachTrainer(Trainer):
 
 
 # JiGen
-trainer = JigenTrainer(n_epochs=10, P=10, N=3, batch_size=32)
-data, phase = get_jigen_data(P=10, batch_size=32)
-if phase == 'train':
-    trainer.train(**data)
-model = data['model']
-test_data = JiGenData(P=10, mode='test')
-dataloader_test = DataLoader(test_data, batch_size=1, shuffle=True)
-accuracy = trainer.evaluate(dataloader_test, model, p_threshold=0.5, T=0.65)
+# trainer = JigenTrainer(n_epochs=10, P=10, N=3, batch_size=32)
+# data, phase = get_jigen_data(P=10, batch_size=32)
+# if phase == 'train':
+#     trainer.train(**data)
+# model = data['model']
+# test_data = JiGenData(P=10, mode='test')
+# dataloader_test = DataLoader(test_data, batch_size=1, shuffle=True)
+# accuracy = trainer.evaluate(dataloader_test, model, p_threshold=0.5, T=0.65)
 
 # # FINETUNE
 # if phase == 'fine-tune':

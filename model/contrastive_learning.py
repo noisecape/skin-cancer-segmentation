@@ -3,7 +3,7 @@ import torchvision
 import torch.nn as nn
 from model.resnet import ResNet, BasicBlock
 import os
-
+import matplotlib.pyplot as plt
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
@@ -48,13 +48,25 @@ class SimCLR(nn.Module):
         )
 
     def augment_data(self, img):
-        augmenter = torchvision.transforms.Compose([torchvision.transforms.RandomResizedCrop((img.shape[1],
+        augmenter = torchvision.transforms.Compose([torchvision.transforms.RandomResizedCrop((img.shape[2],
                                                                                               img.shape[2])),
-                                                    torchvision.transforms.ColorJitter(0.8, 0.8, 0.8, 0.2),
-                                                    torchvision.transforms.GaussianBlur(3)])
+                                                    torchvision.transforms.ColorJitter(0.9, 0.9, 0.9, 0.5),
+                                                    torchvision.transforms.GaussianBlur(5, sigma=(1.5, 3.5))])
         augmented_1 = augmenter(img)
         augmented_2 = augmenter(img)
+        # self.visualize_image(augmented_1)
+        # self.visualize_image(augmented_2)
         return augmented_1, augmented_2
+
+    def visualize_image(self, x):
+        x = x[0].cpu()
+        plt.figure(figsize=(16, 16))
+        x = x.permute(1, 2, 0)
+        x = (x * 0.5) + 0.5
+        plt.imshow(x)
+        plt.axis('off')
+        plt.show()
+        plt.close()
 
     def forward(self, x, pretext=False):
         if pretext:
