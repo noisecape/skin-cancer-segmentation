@@ -7,6 +7,9 @@ import numpy as np
 
 
 class SegmentationDataset(Dataset):
+    """
+    This class defines the custom dataset for the task of segmenting skin lesions.
+    """
 
     imgs_path = 'data/Resized/Labelled/Images'
     gt_path = 'data/Resized/Labelled/Groundtruth'
@@ -30,10 +33,22 @@ class SegmentationDataset(Dataset):
             self.data = self.build_data(start_idx, end_idx)
 
     def build_data(self, start_idx, end_idx):
+        """
+        Builds the data for the segmentation. Each element is a pair composed by an image
+        and its respective ground truth mask.
+        :param start_idx: the start index according to the split percentage
+        :param end_idx: the end index according to the split percentage
+        :return data: each element is a pair of (image, ground truth mask)
+        """
         data = [(img, gt) for img, gt in zip(self.imgs_labels[start_idx:end_idx], self.gt_labels[start_idx:end_idx])]
         return data
 
     def __getitem__(self, idx):
+        """
+        Returns a pair of (image, ground truth mask) that represents a data point for a specific batch.
+        :param idx: the index used to access the idx-th image from the collection of images.
+        :return (img, gt): the image (tensor) and the corresponding ground truth mask.
+        """
         img_path = os.path.join(SegmentationDataset.imgs_path, self.data[idx][0])
         gt_path = os.path.join(SegmentationDataset.gt_path, self.data[idx][1])
         img = Image.open(os.path.join(os.curdir, img_path)).convert("RGB")

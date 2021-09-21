@@ -9,7 +9,10 @@ import numpy as np
 
 
 class ContextRestorationDataPretext(Dataset):
-
+    """
+    This class represents the custom dataset for
+    the pretext task of the Context Restoration model.
+    """
     def __init__(self, mode='train', T=20, split=[0.9, 0.1], full_data=False):
         super(ContextRestorationDataPretext, self).__init__()
         self.full_data = full_data
@@ -24,12 +27,25 @@ class ContextRestorationDataPretext(Dataset):
         self.data = self.get_data()
 
     def get_data(self):
+        """
+        Select the path of each image
+        according to the split percentage.
+        :return:
+        """
         if self.mode == 'train':
             return self.images[:int(len(self.images) * self.split[0])]
         elif self.mode == 'val':
             return self.images[int(len(self.images) * self.split[0]):]
 
     def build_data(self, img_label):
+        """
+        Each image path gets processed so that the path (string)
+        is converted to a tensor, where each value represents the
+        value of the pixels. The image is then corrupted by swapping the
+        content of two pairs of patches.
+        :param img_label: the path of a specific image in the collection
+        :return (img, corrupted_img): img is the original image, corrupted_img is the corrupted one.
+        """
         img_path = os.path.join(self.imgs_path, img_label)
         img = Image.open(os.path.join(os.curdir, img_path))
         tensor_converter = torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
@@ -40,6 +56,12 @@ class ContextRestorationDataPretext(Dataset):
         return img, corrupted_img
 
     def augment_image(self, x, patch_size=14):
+        """
+        Augment the image by swapping the content of two patches.
+        :param x: the image to augment
+        :param patch_size: the size of each patch
+        :return new_x: the new image where two patches have been swapped.
+        """
         new_x = x.clone().detach()
         for _ in range(self.T):
             firstpatch_coordinates = (random.randint(0, x.shape[1]-patch_size),
@@ -53,6 +75,14 @@ class ContextRestorationDataPretext(Dataset):
         return new_x
 
     def swap_patches(self, img, coord_1, coord_2, size):
+        """
+        Perform the actual swapping of the patches.
+        :param img: the image whose pair of patches have to be swapped.
+        :param coord_1: the coordinates of the first patch in (x, y)
+        :param coord_2: the coordinates of the second patch in (x, y)
+        :param size: the size of the patches
+        :return:
+        """
         # iterate through all the image's channel and swap the selected pixels
         new_x = img.clone().detach()
         first_path = img[0:3, coord_2[0]:coord_2[0]+size, coord_2[1]:coord_2[1]+size]
@@ -89,6 +119,11 @@ class ContextRestorationDataPretext(Dataset):
         plt.close()
 
     def __getitem__(self, idx):
+        """
+        Return a specific pair of (original, corrupted) image.
+        :param idx: The index used to access the specific image in the collection.
+        :return batch: a tuple containing the original image and the corrupted one
+        """
         batch = self.build_data(self.data[idx])
         return batch
 
@@ -98,6 +133,10 @@ class ContextRestorationDataPretext(Dataset):
 
 
 class ContrastiveLearningDataPretext(Dataset):
+    """
+    This class represents the custom dataset for
+    the pretext task of SimCLR.
+    """
 
     def __init__(self, mode='train', split=[0.9, 0.1], full_data=False):
         super(ContrastiveLearningDataPretext, self).__init__()
@@ -112,6 +151,10 @@ class ContrastiveLearningDataPretext(Dataset):
         self.data = self.get_data()
 
     def get_data(self):
+        """
+        Perform the split of the data according to the given percentages
+        :return: the set of images path whose cardinality depends by the split percentage
+        """
         if self.mode == 'train':
             return self.images[:int(len(self.images) * self.split[0])]
         elif self.mode == 'val':
@@ -127,6 +170,12 @@ class ContrastiveLearningDataPretext(Dataset):
         plt.close()
 
     def __getitem__(self, idx):
+        """
+        Returns a tensor representing an image selected from the list of path
+        defined previously.
+        :param idx: the index used to access the idx-th image in the collection.
+        :return img: the tensor representing the idx-th image from the collection
+        """
         x = self.data[idx]
         abs_path = os.path.join(os.curdir, self.imgs_path)
         img_path = os.path.join(abs_path, x)
@@ -143,6 +192,10 @@ class ContrastiveLearningDataPretext(Dataset):
 
 
 class JiGenData(Dataset):
+    """
+    This class represents the custom dataset used
+    for JiGen.
+    """
 
     def __init__(self, P, N=3, split=[0.2, 0.1, 0.7], mode='train', full_data=False):
         super(JiGenData, self).__init__()
@@ -172,10 +225,22 @@ class JiGenData(Dataset):
             self.data = self.get_data(start_idx, end_idx)
 
     def get_data(self, start_idx, end_idx):
+        """
+        Returns a list of pairs of images path from the collection of images,
+        where the first image is the jigsaw puzzle while the second image is the original one.
+        :param start_idx: the start index defined by the split percentage
+        :param end_idx: the end index defined by the plit percentage
+        :return:
+        """
         data = [(img, gt) for img, gt in zip(self.imgs_labels[start_idx:end_idx], self.gt_labels[start_idx:end_idx])]
         return data
 
     def get_permutation_set(self):
+        """
+        Calculate the permutations required to define the Jigsaw puzzles
+        for a batch of images
+        :return permutations: a list of permutations
+        """
         indices = [0, 1, 2, 3, 4, 5, 6, 7, 8]
         permutations = [indices]
         while len(permutations) != self.P:
@@ -185,6 +250,15 @@ class JiGenData(Dataset):
         return permutations
 
     def validate_permutation(self, permutations, candidate, min_dist=4):
+        """
+        This function validate a specific permutation applying the Hamming distance
+        algorithm
+        :param permutations: the set of permutations already validated
+        :param candidate: the candidate permutation to be validated
+        :param min_dist: the minimum number of elements that must be different
+        between the candidate and the set of permutations
+        :return boolean: True if the permutation is valid, False otherwise.
+        """
         for p in permutations:
             dist = sum(int(char1 != char2) for char1, char2 in zip(p, candidate))
             if dist < min_dist:
@@ -192,6 +266,13 @@ class JiGenData(Dataset):
         return True
 
     def get_segmentation_batch(self, idx):
+        """
+        Builds a pair of original image and the corresponding segmentation mask. The segmentation
+        mask is processed so that each pixel either have a value 0 or 1. The original image
+        is converted to a tensor.
+        :param idx: the index use to retrieve the idx-th image from the collection.
+        :return (img, gt): img is the idx-th image in the collection, gt is the corresponding segmentation mask.
+        """
         img_path = os.path.join(self.imgs_path, self.imgs_labels[idx])
         gt_path = os.path.join(self.gt_path, self.gt_labels[idx])
         img = Image.open(os.path.join(os.curdir, img_path)).convert("RGB")
@@ -206,6 +287,13 @@ class JiGenData(Dataset):
         return img, gt
 
     def build_data(self, img_label, permutations):
+        """
+        Creates P Jigsaw puzzle from given image.
+        :param img_label: the label that identifies the image in the collection
+        :param permutations: set of permutations that shape each Jigsaw puzzle
+        :return (imgs, labels): imgs is a tensor of P images where each image is a Jigsaw puzzle,
+        labels is a tensor of P permutations that represent the label of the pretext task.
+        """
         imgs = torch.ones((self.P, 3, 128, 128))
         labels = torch.ones(self.P, dtype=int)
         permutation_chosen_idx = [0 for _ in range(int(len(permutations)/2.5))]
@@ -224,6 +312,12 @@ class JiGenData(Dataset):
         return imgs, labels
 
     def shuffle_tiles(self, img, chosen_p):
+        """
+        This function is used to swap the tiles according to the chosen permutation.
+        :param img: the image whose patches have to be swapped.
+        :param chosen_p: the permutation to be used to swap the tiles of an image.
+        :return img: the image that defines a specific Jigsaw puzzle according to a specific permutation.
+        """
         tiles = [None] * self.N**2
         # chosen_permutations = []
         # permuted_images = []
@@ -242,6 +336,13 @@ class JiGenData(Dataset):
         return img
 
     def get_tile(self, img, i):
+        """
+        This function is used to calculate the coordinates of each tile to define
+        9 patches from a given image.
+        :param img: the image considered
+        :param i: the i-th tile of the image.
+        :return:
+        """
         w = int(img.size[0] / self.N)
         y = int(i/self.N)
         x = i % self.N
@@ -249,6 +350,12 @@ class JiGenData(Dataset):
         return tile
 
     def __getitem__(self, idx):
+        """
+        Returns a 4-tuple representing respectively: the jigsaw puzzles of a given image, the permutations associated
+        with it, the image to be used for the segmentation, the ground truth mask.
+        :param idx: identifies the idx-th image in the collection
+        :return:
+        """
         # each element in a batch is as follows [P_shuffled_imgs, idx_permutations, N_original_imgs, N_gt_imgs]
         seg_img, gt_img = self.get_segmentation_batch(idx)
         permutation_set = self.get_permutation_set()
@@ -261,6 +368,11 @@ class JiGenData(Dataset):
 
 
 class CustomDataPretext(Dataset):
+    """
+    This class defines the custom dataset used
+    for the pretext task of the Personal Model.
+    """
+
 
     def __init__(self, mode='train', split=[0.9, 0.1], full_data=False):
         super(CustomDataPretext, self).__init__()
@@ -296,6 +408,12 @@ class CustomDataPretext(Dataset):
                               }
 
     def process_batch(self, idx):
+        """
+        Augment a specific image using a specific augmentation
+        selected randomly from the set of augmentations proposed.
+        :param idx: the index used to retrieve the idx-th image from the collection
+        :return (image, augmentation_idx): the augmented image and the index of the augmentation applied (pseudo-label)
+        """
         # image path
         image_label = self.data[idx]
         abs_path = os.path.join(os.curdir, self.unlabelled_path)
@@ -306,6 +424,12 @@ class CustomDataPretext(Dataset):
         return image, augmentation_idx
 
     def __getitem__(self, idx):
+        """
+        Returns the idx-th image from the collection that has been augmented, together with the index
+        of the augmentation applied.
+        :param idx: index used to access the idx-th image from the colleciton
+        :return:
+        """
         return self.process_batch(idx)
 
     def __len__(self):
@@ -313,6 +437,10 @@ class CustomDataPretext(Dataset):
         # return 100
 
     def get_data(self):
+        """
+        Splits the data according to the split percentage.
+        :return:
+        """
         if self.mode == 'train':
             return self.imgs_label[:int(len(self.imgs_label) * self.split[0])]
         elif self.mode == 'val':
@@ -326,17 +454,3 @@ class CustomDataPretext(Dataset):
         plt.axis('off')
         plt.show()
         plt.close()
-
-
-# dataset = JigsawData(P=10)
-# dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
-# for batch in dataloader:
-#     pretext_imgs, labels, seg_imgs, gt_imgs = batch
-#     print()
-
-# dataset = CustomDataPretext()
-# dataloader = DataLoader(dataset, batch_size=64)
-# for batch in dataloader:
-#     imgs = batch[0]
-#     labels = batch[1]
-#     print()

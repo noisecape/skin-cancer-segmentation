@@ -8,36 +8,39 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
 class SimCLR(nn.Module):
+    """
+    This class implements the SimCLR architecture. Reference: https://github.com/google-research/simclr.
+    The backbone architecture is the ResNet-34, implemented by using a customized version of the pytorch's Resnet
+    implementation.
+    """
 
     def __init__(self, out_dim=512):
         super(SimCLR, self).__init__()
         self.name = 'contrastive_learning'
+        # implements ResNet-34
         self.backbone = ResNet(BasicBlock, [3, 4, 6, 3])
         # used for pretext task
         self.pretext_head = nn.Sequential(nn.Linear(out_dim, out_dim), nn.ReLU(), nn.Linear(out_dim, out_dim))
         # used for segmentation task
         self.fcn = nn.Sequential(
-            # input [N x 2048 x 1 x 1]
-            # output [N x 1024 x 4 x 4]
+            # input [N x 512 x 1 x 1]
+            # output [N x 256 x 4 x 4]
             nn.ConvTranspose2d(512, 256, kernel_size=4, stride=1, padding=0, bias=False),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
-            # output [N x 512 x 8 x 8]
+            # output [N x 128 x 8 x 8]
             nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-            # output [N x 256 x 16 x 16]
+            # output [N x 64 x 16 x 16]
             nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
-            # output [N x 128 x 32 x 32]
+            # output [N x 32 x 32 x 32]
             nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            # output [N x 1 x 64 x 64]
-            # For images of 64x64
-            # nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1, bias=False),
-            # For images of 128x128
+            # output [N x 16 x 64 x 64]
             nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(16),
             nn.ReLU(inplace=True),
@@ -48,6 +51,12 @@ class SimCLR(nn.Module):
         )
 
     def augment_data(self, img):
+        """
+        Augments a specific image twice using random values. The possible augmentations are random resize and crop,
+        colour distortion and blur effect.
+        :param img: the image to be augmented
+        :return augmented1, augmented2: two randomly augmented images from a common source.
+        """
         augmenter = torchvision.transforms.Compose([torchvision.transforms.RandomResizedCrop((img.shape[2],
                                                                                               img.shape[2])),
                                                     torchvision.transforms.ColorJitter(0.9, 0.9, 0.9, 0.5),
@@ -84,20 +93,3 @@ class SimCLR(nn.Module):
             x = self.backbone(x)
             output = self.fcn(x)
             return output
-
-# pretext sample
-# x = torch.randn((64, 3, 128, 128))
-# model = SimCLR(out_dim=512)
-# emb_1, emb_2 = model(x, pretext=True)
-# criterion = ContrastiveLoss()
-# loss = criterion(emb_1, emb_2)
-# print(loss)
-#
-# # segmentation sample
-# x = torch.randn((64, 3, 128, 128))
-# gt = torch.randn((64, 1, 128, 128))
-# model = SimCLR(out_dim=512)
-# prediction = model(x, pretext=False)
-# criterion = torch.nn.BCEWithLogitsLoss()
-# loss = criterion(prediction, gt)
-# print(loss)

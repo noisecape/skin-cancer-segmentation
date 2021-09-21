@@ -6,6 +6,12 @@ DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 
 
 class ContrastiveLoss(Module):
+    """
+    Implements the NT-Xent loss function used in SimCLR. The reference for the implementation of this
+    class are the following:
+    https://github.com/google-research/simclr/blob/bfe07eed7f101ab51f3360100a28690e1bfbf6ec/objective.py#L38
+    https://zablo.net/blog/post/understanding-implementing-simclr-guide-eli5-pytorch/
+    """
 
     def __init__(self, temperature=0.5):
         super(ContrastiveLoss, self).__init__()
@@ -36,9 +42,3 @@ class ContrastiveLoss(Module):
         loss = torch.sum(loss) / batch_size * 2
 
         return loss
-
-# emb1 = torch.randn((64,2048))
-# emb2 = torch.randn((64, 2048))
-# criterion = ContrastiveLoss().to(DEVICE)
-# loss = criterion(emb1, emb2)
-# print()

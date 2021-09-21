@@ -7,6 +7,7 @@ import csv
 
 IMAGE_SIZE = 128
 
+# THIS COMMENTED FUNCTIONS ARE USED TO CREATE THE RESIZED FOLDER IF NOT ALREADY CREATED.
 
 # def resize_images_unlabelled(folder_path, cancer_imgs, new_imgs_folder="./Resized/Unlabelled", img_size=IMAGE_SIZE):
 #     # if the folder already exists, then return. Otherwise, create a new folder
@@ -155,6 +156,7 @@ def resize_images_unlabelled(folder_path, new_imgs_folder="./Resized_All/Unlabel
         print('Folder Processed.')
     print('Done')
 
+# THIS FUNCTIONS ARE USED TO POPULATE THE RESIZED_ALL FOLDER IF NOT ALREADY CREATED.
 
 def resize_images_labelled(folder_path, new_imgs_folder="./Resized_All/Labelled", img_size=IMAGE_SIZE):
     if not os.path.exists(new_imgs_folder):

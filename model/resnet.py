@@ -1,6 +1,13 @@
-import torch
+"""
+This script contains the implementation of the Pytorch's Resnet downloaded from the
+official open-source repository. Reference: https://github.com/pytorch/vision/tree/main/torchvision/models
+Based on the pytorch's implementation, the model was adjusted to satisfy the needs of this project. Specifically
+the resnet was implemented till the last pooling layer, while the subsequent layer of the original implementation
+were dropped.
+"""
+
 import torch.nn as nn
-from typing import Type, Any, Callable, Union, List, Optional
+from typing import Type, Callable, Union, List, Optional
 from torch import Tensor
 
 

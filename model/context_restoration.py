@@ -4,6 +4,9 @@ DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 
 
 class DoubleConv(nn.Module):
+    """
+    This class represents the double convolution that is used in multiple times in the U-Net
+    """
     def __init__(self, in_channels, out_channels):
         super(DoubleConv, self).__init__()
         self.conv = nn.Sequential(
@@ -20,8 +23,10 @@ class DoubleConv(nn.Module):
 
 
 class UNET(nn.Module):
-    def __init__(
-            self, in_channels=3, features=[64, 128, 256, 512], name='context_restoration'):
+    """
+    This class implements the U-Net architecture. Reference: https://github.com/milesial/Pytorch-UNet
+    """
+    def __init__(self, in_channels=3, features=[64, 128, 256, 512], name='context_restoration'):
         super(UNET, self).__init__()
         self.ups = nn.ModuleList()
         self.downs = nn.ModuleList()

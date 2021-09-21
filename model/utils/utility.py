@@ -12,7 +12,9 @@ def save_checkpoint(checkpoint, path):
 
 
 def load_model(model, path):
+    print("Loading Model...")
     model.load_state_dict(torch.load(path, map_location=DEVICE))
+    print("Model Loaded Correctly")
     return model
 
 
@@ -25,33 +27,12 @@ def get_train_history(path):
 
 
 def load_checkpoint(model, optimizer, path):
+    print("Loading Checkpoint...")
     checkpoint = torch.load(path, map_location=DEVICE)
     epoch = checkpoint['epoch']
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     loss_history = checkpoint['loss_history']
     val_history = checkpoint['val_history']
+    print("Checkpoint Loaded Correctly!")
     return epoch, model, optimizer, loss_history, val_history
-
-
-# def visualize_final_results(path):
-#     absolute_path = 'C:/Users/Noisecape/PycharmProjects/skin-cancer-segmentation/saved_models'
-#     for p in path:
-#         p = os.path.join(absolute_path, p)
-#         checkpoint = torch.load(p, map_location=DEVICE)
-#         loss_history = checkpoint['loss_history']
-#         plt.plot(loss_history[:2000])
-#     plt.title(f'Train Loss vs Validation Loss - {"Experiment 1 - Results"}')
-#     plt.xlabel('Epochs')
-#     plt.ylabel('Loss')
-#     plt.yscale('log')
-#
-#     plt.legend()
-#     plt.show()
-#
-#
-# absolute_path = 'C:/Users/Noisecape/PycharmProjects/skin-cancer-segmentation/saved_models'
-# paths = [el if '.pth' in el else 0 for el in os.listdir(absolute_path)]
-# while 0 in paths:
-#     paths.remove(0)
-# visualize_final_results(paths)
