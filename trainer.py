@@ -29,7 +29,7 @@ DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 saved_files_path = os.path.join(os.curdir, 'saved_models')
 
 
-def get_jigen_data(P, batch_size, split):
+def get_jigen_data(P, batch_size, split, conf):
     """
     This function initializes the JiGen algorithm. If the checkpoints and the weights
     for the final model are provided with the ".pth" files, then those values are loaded
@@ -40,7 +40,7 @@ def get_jigen_data(P, batch_size, split):
     :return data, phase: data is a dictionary containing all the relevant information for the model,
     phase indicates the current phase of the training process (either "train" or "test").
     """
-    model = JiGen(P=P).to(DEVICE)
+    model = JiGen(conf=conf, P=P).to(DEVICE)
     train_data = JiGenData(P=P, mode='train', split=split)
     val_data = JiGenData(P=P, mode='val', split=split)
     dataloader_params = {'shuffle': True, 'batch_size': batch_size}
@@ -67,7 +67,7 @@ def get_jigen_data(P, batch_size, split):
     return data, phase
 
 
-def get_supervised_data(batch_size, split):
+def get_supervised_data(batch_size, split, conf):
     """
     This function initializes the U-Net. If the checkpoints and the weights
     for the final model are provided with the ".pth" files, then those values are loaded
@@ -84,7 +84,14 @@ def get_supervised_data(batch_size, split):
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
     criterion = torch.nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.0001, weight_decay=0.1)
+
+    if conf == 1:
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
+    elif conf == 2:
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.001, weight_decay=0.01, momentum=0.995, nesterov=True)
+    elif conf == 3:
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+
     epoch = 0
     loss_history = []
     val_history = []
@@ -103,7 +110,7 @@ def get_supervised_data(batch_size, split):
     return data, phase
 
 
-def get_contrastive_learning_pretext(batch_size, full_data):
+def get_contrastive_learning_pretext(batch_size, full_data, conf):
     """
     This function initializes SimCLR. If the checkpoints and the weights
     for the final model are provided with the ".pth" files, then those values are loaded
@@ -121,7 +128,16 @@ def get_contrastive_learning_pretext(batch_size, full_data):
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
     criterion = ContrastiveLoss().to(DEVICE)
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.0001, momentum=0.9, weight_decay=0.01, nesterov=True)
+
+    if conf == 1:
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01, amsgrad=True)
+    elif conf == 2:
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.995, weight_decay=0.05, nesterov=True)
+    elif conf == 3:
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.995, weight_decay=0.05, nesterov=True)
+    elif conf == 4:
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.995, weight_decay=0.05, nesterov=True)
+
     epoch = 0
     loss_history = []
     val_history = []
@@ -141,7 +157,7 @@ def get_contrastive_learning_pretext(batch_size, full_data):
     return data, phase
 
 
-def get_context_restoration_pretext(T, batch_size, full_data):
+def get_context_restoration_pretext(T, batch_size, full_data, conf):
     """
     Intializes the context restoration model for the pretext task. If the checkpoints and the weights
     for the final model are provided with the ".pth" files, then those values are loaded
@@ -160,7 +176,16 @@ def get_context_restoration_pretext(T, batch_size, full_data):
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.SGD(model.parameters(), weight_decay=0.01, lr=0.001, momentum=0.995, nesterov=True)
+
+    if conf == 1:
+        optimizer = torch.optim.Adam(model.parameters(), weight_decay=0.01, lr=0.0001)
+    elif conf == 2:
+        optimizer = torch.optim.SGD(model.parameters(), weight_decay=0.01, lr=0.0001, momentum=0.99, nesterov=True)
+    elif conf == 3:
+        optimizer = torch.optim.SGD(model.parameters(), weight_decay=0.01, lr=0.001, momentum=0.99, nesterov=True)
+    elif conf == 4:
+        optimizer = torch.optim.SGD(model.parameters(), weight_decay=0.05, lr=0.001, momentum=0.995, nesterov=True)
+
     epoch = 0
     loss_history = []
     val_history = []
@@ -180,7 +205,7 @@ def get_context_restoration_pretext(T, batch_size, full_data):
     return data, phase
 
 
-def get_custom_approach_pretext(batch_size, full_data):
+def get_custom_approach_pretext(batch_size, full_data, conf):
     """
     This function initializes Personal Model for the pretext task. If the checkpoints and the weights
     for the final model are provided with the ".pth" files, then those values are loaded
@@ -198,7 +223,16 @@ def get_custom_approach_pretext(batch_size, full_data):
     dataloader_train = DataLoader(train_data, **dataloader_params)
     dataloader_val = DataLoader(val_data, **dataloader_params)
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, weight_decay=0.01, momentum=0.995, nesterov=True)
+
+    if conf == 1:
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.01)
+    elif conf == 2:
+        optimizer = torch.optim.SGD(model.parameters(), weight_decay=0.01, lr=0.001, momentum=0.995, nesterov=True)
+    elif conf == 3:
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+    elif conf == 4:
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+
     epoch = 0
     loss_history = []
     val_history = []

@@ -13,7 +13,7 @@ class JiGen(nn.Module):
     their specific task.
     """
 
-    def __init__(self, P=30):
+    def __init__(self, conf, P=30):
         super(JiGen, self).__init__()
         self.name = 'jigen'
         self.P = P
@@ -21,7 +21,13 @@ class JiGen(nn.Module):
         self.pretext_model = JiGenPretext(P=P)
         # model used for the segmentation task
         self.segmentation_model = JiGenSegmentation()
-        self.optimizer = torch.optim.SGD(self.parameters(), lr=0.001, weight_decay=0.1)
+        self.conf = conf
+        # the optimizer used for JiGen changes only for experiment 1.
+        # For experiment 2, 3 and 4 the same optimizer was used.
+        if conf == 1:
+            self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001, weight_decay=0.01)
+        else:
+            self.optimizer = torch.optim.SGD(self.parameters(), lr=0.001)
 
     def forward(self, x, pretext):
         if pretext:
